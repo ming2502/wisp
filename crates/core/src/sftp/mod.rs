@@ -1,15 +1,21 @@
 //! Remote file operations over SFTP. Remote paths are POSIX paths kept as strings, since they
 //! need not be valid paths on the local system.
 
+mod edit;
+
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
+use russh::client::Handle;
 use russh_sftp::client::error::Error as SftpProtocolError;
-use russh_sftp::client::{Config, SftpSession};
+use russh_sftp::client::{Config, RawSftpSession, SftpSession};
 use russh_sftp::protocol::{FileAttributes, StatusCode};
 use serde::Serialize;
 
-use crate::connection::Session;
+use crate::connection::{ClientHandler, Session};
+
+pub use edit::{EditError, LineEnding, MAX_EDIT_BYTES, TextFile, TextFormat, Version};
 
 /// Generous enough for slow disks on the server, which answer each request in turn.
 const REQUEST_TIMEOUT_SECS: u64 = 30;
@@ -125,6 +131,15 @@ pub fn validate_name(name: &str) -> Result<(), SftpError> {
 
 pub struct RemoteFs {
     sftp: SftpSession,
+    handle: Arc<Handle<ClientHandler>>,
+    /// A raw session for protocol extensions the high-level client does not offer, opened on
+    /// first use. `None` inside means the server would not open one.
+    extensions: tokio::sync::OnceCell<Option<Extensions>>,
+}
+
+pub(crate) struct Extensions {
+    raw: RawSftpSession,
+    posix_rename: bool,
 }
 
 impl Session {
@@ -147,13 +162,35 @@ impl Session {
         let sftp = SftpSession::new_with_config(channel.into_stream(), config)
             .await
             .map_err(|_| SftpError::Unavailable)?;
-        Ok(RemoteFs { sftp })
+        Ok(RemoteFs {
+            sftp,
+            handle: self.handle.clone(),
+            extensions: tokio::sync::OnceCell::new(),
+        })
     }
 }
 
 impl RemoteFs {
     pub(crate) fn session(&self) -> &SftpSession {
         &self.sftp
+    }
+
+    pub(crate) async fn extensions(&self) -> Option<&Extensions> {
+        self.extensions
+            .get_or_init(|| async {
+                let channel = self.handle.channel_open_session().await.ok()?;
+                channel.request_subsystem(true, "sftp").await.ok()?;
+                let raw = RawSftpSession::new(channel.into_stream());
+                raw.set_timeout(REQUEST_TIMEOUT_SECS);
+                let version = raw.init().await.ok()?;
+                let posix_rename = version
+                    .extensions
+                    .get("posix-rename@openssh.com")
+                    .is_some_and(|v| v == "1");
+                Some(Extensions { raw, posix_rename })
+            })
+            .await
+            .as_ref()
     }
 
     pub async fn home(&self) -> Result<String, SftpError> {

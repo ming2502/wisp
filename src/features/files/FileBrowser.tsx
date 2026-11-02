@@ -6,6 +6,7 @@ import {
   ArrowUp,
   Download,
   File,
+  FilePen,
   FileSymlink,
   Folder,
   FolderPlus,
@@ -62,9 +63,10 @@ interface Props {
   sessionId: number;
   active: boolean;
   onNotice: (message: string) => void;
+  onOpenFile: (path: string) => void;
 }
 
-export function FileBrowser({ sessionId, active, onNotice }: Props) {
+export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) {
   const [path, setPath] = useState<string | null>(null);
   const [typedPath, setTypedPath] = useState("");
   const [entries, setEntries] = useState<RemoteEntry[]>([]);
@@ -201,7 +203,7 @@ export function FileBrowser({ sessionId, active, onNotice }: Props) {
 
   function openEntry(entry: RemoteEntry) {
     if (isDir(entry)) load(entry.path);
-    else void download([entry]);
+    else onOpenFile(entry.path);
   }
 
   function goUp() {
@@ -272,6 +274,9 @@ export function FileBrowser({ sessionId, active, onNotice }: Props) {
         </button>
         <button type="button" aria-label="下载" title="下载所选" className={iconButton} onClick={() => void download(selected)} disabled={selected.length === 0}>
           <Download size={15} />
+        </button>
+        <button type="button" aria-label="编辑" title="在编辑器中打开" className={iconButton} onClick={() => one && !isDir(one) && onOpenFile(one.path)} disabled={!one || isDir(one)}>
+          <FilePen size={15} />
         </button>
         <button type="button" aria-label="重命名" title="重命名 (F2)" className={iconButton} onClick={() => one && setDialog({ kind: "rename", entry: one })} disabled={!one}>
           <Pencil size={15} />

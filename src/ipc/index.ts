@@ -257,3 +257,54 @@ export function transfersSubscribe(
 ): Promise<TransferInfo[]> {
   return invoke("transfers_subscribe", { onChange: new Channel<TransferInfo[]>(onChange) });
 }
+
+export interface FileVersion {
+  size: number;
+  modified: number | null;
+}
+
+export interface TextFormat {
+  lineEnding: "lf" | "crlf";
+  bom: boolean;
+}
+
+export interface TextFile {
+  path: string;
+  content: string;
+  format: TextFormat;
+  mixedLineEndings: boolean;
+  readOnly: boolean;
+  version: FileVersion;
+}
+
+export type EditFailure = { message: string } & (
+  | { kind: "notAFile" }
+  | { kind: "tooLarge"; size: number }
+  | { kind: "binary" }
+  | { kind: "conflict"; current: FileVersion }
+  | { kind: "atomicUnavailable"; reason: string }
+  | { kind: "failed" }
+);
+
+export function asEditFailure(reason: unknown): EditFailure {
+  if (typeof reason === "object" && reason !== null && "kind" in reason && "message" in reason) {
+    return reason as EditFailure;
+  }
+  return { kind: "failed", message: String(reason) };
+}
+
+export function editorOpen(sessionId: number, path: string): Promise<TextFile> {
+  return invoke("editor_open", { sessionId, path });
+}
+
+export interface SaveRequest {
+  content: string;
+  format: TextFormat;
+  expected: FileVersion;
+  overwriteChanges: boolean;
+  direct: boolean;
+}
+
+export function editorSave(sessionId: number, path: string, request: SaveRequest): Promise<FileVersion> {
+  return invoke("editor_save", { sessionId, path, ...request });
+}

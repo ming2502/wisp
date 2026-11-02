@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FolderOpen, SquareTerminal, X } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { FileText, FolderOpen, SquareTerminal, X } from "lucide-react";
 import { ConnectDialog } from "../features/connect/ConnectDialog";
 import { GroupEditor } from "../features/hosts/GroupEditor";
 import { HostEditor } from "../features/hosts/HostEditor";
@@ -22,14 +23,19 @@ import {
   type HostList as HostData,
 } from "../ipc";
 
-type View = "terminal" | "files";
+import {
+  nextActive,
+  openEditor,
+  sessionKey,
+  tabsClosedWith,
+  type Tab,
+  type View,
+} from "./tabs";
 
-interface Tab {
-  sessionId: number;
-  title: string;
-  ended: boolean;
-  view: View;
-}
+// The editor and CodeMirror are most of the code, and only needed once a file is opened.
+const EditorView = lazy(() =>
+  import("../features/editor/EditorView").then((module) => ({ default: module.EditorView })),
+);
 
 type Dialog =
   | { kind: "connect"; host: Host }
@@ -38,14 +44,15 @@ type Dialog =
   | { kind: "editGroup"; group: Group | null }
   | { kind: "deleteGroup"; group: Group }
   | { kind: "import" }
-  | { kind: "closeTab"; tab: Tab; active: number };
+  | { kind: "closeTabs"; key: string; message: string }
+  | { kind: "quit" };
 
 export default function App() {
   const [data, setData] = useState<HostData>({ hosts: [], groups: [] });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeId, setActiveId] = useState<number | null>(null);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [transfers, setTransfers] = useState<TransferInfo[]>([]);
   const [speeds, setSpeeds] = useState<Map<number, number>>(new Map());
   const [notice, setNotice] = useState<string | null>(null);
@@ -88,36 +95,83 @@ export default function App() {
 
   useEffect(refresh, [refresh]);
 
+  const hasUnsaved = tabs.some((tab) => tab.kind === "editor" && tab.dirty);
+  const hasUnsavedRef = useRef(hasUnsaved);
+  hasUnsavedRef.current = hasUnsaved;
+
+  // Quitting with unsaved edits asks first.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    try {
+      void getCurrentWindow()
+        .onCloseRequested((event) => {
+          if (!hasUnsavedRef.current) return;
+          event.preventDefault();
+          setDialog({ kind: "quit" });
+        })
+        .then((stop) => (unlisten = stop))
+        .catch(() => {});
+    } catch {
+      // Not running inside Tauri.
+    }
+    return () => unlisten?.();
+  }, []);
+
   const close = () => setDialog(null);
 
   function addTab(sessionId: number, title: string) {
-    setTabs((current) => [...current, { sessionId, title, ended: false, view: "terminal" }]);
-    setActiveId(sessionId);
+    const key = sessionKey(sessionId);
+    setTabs((current) => [...current, { kind: "session", key, sessionId, title, ended: false, view: "terminal" }]);
+    setActiveKey(key);
+  }
+
+  function updateTab(key: string, change: (tab: Tab) => Tab) {
+    setTabs((current) => current.map((tab) => (tab.key === key ? change(tab) : tab)));
   }
 
   function markEnded(sessionId: number) {
-    setTabs((current) =>
-      current.map((tab) => (tab.sessionId === sessionId ? { ...tab, ended: true } : tab)),
-    );
+    updateTab(sessionKey(sessionId), (tab) => ({ ...tab, ended: true }));
     void sshDisconnect(sessionId);
   }
 
-  function setView(sessionId: number, view: View) {
-    setTabs((current) => current.map((tab) => (tab.sessionId === sessionId ? { ...tab, view } : tab)));
+  function setView(key: string, view: View) {
+    updateTab(key, (tab) => (tab.kind === "session" ? { ...tab, view } : tab));
   }
 
-  function requestCloseTab(tab: Tab) {
-    const active = activeTransfers.get(tab.sessionId) ?? 0;
-    if (active > 0) setDialog({ kind: "closeTab", tab, active });
-    else closeTab(tab.sessionId);
+  function openFile(sessionId: number, path: string) {
+    const opened = openEditor(tabs, sessionId, path);
+    setTabs(opened.tabs);
+    setActiveKey(opened.key);
   }
 
-  function closeTab(sessionId: number) {
-    const remaining = tabs.filter((tab) => tab.sessionId !== sessionId);
-    setTabs(remaining);
-    if (activeId === sessionId) setActiveId(remaining[remaining.length - 1]?.sessionId ?? null);
-    void sshDisconnect(sessionId);
+  function requestClose(key: string) {
+    const closing = tabsClosedWith(tabs, key);
+    const target = closing.find((tab) => tab.key === key);
+    if (!target) return;
+    const unsaved = closing.filter((tab) => tab.kind === "editor" && tab.dirty).length;
+    const transfersLeft = target.kind === "session" ? (activeTransfers.get(target.sessionId) ?? 0) : 0;
+    const reasons = [
+      unsaved > 0 && `有 ${unsaved} 个文件尚未保存，关闭后修改会丢失`,
+      transfersLeft > 0 && `有 ${transfersLeft} 个传输未完成，关闭后会被取消，未完成的部分会被删除`,
+    ].filter(Boolean);
+    if (reasons.length > 0) {
+      setDialog({ kind: "closeTabs", key, message: `“${target.title}”${reasons.join("；")}。` });
+    } else {
+      closeTabs(key);
+    }
   }
+
+  function closeTabs(key: string) {
+    const closing = tabsClosedWith(tabs, key);
+    setTabs(tabs.filter((tab) => !closing.includes(tab)));
+    setActiveKey(nextActive(tabs, closing, activeKey));
+    const session = closing.find((tab) => tab.kind === "session");
+    if (session) void sshDisconnect(session.sessionId);
+  }
+
+  const activeTab = tabs.find((tab) => tab.key === activeKey) ?? null;
+  const connected = (sessionId: number) =>
+    tabs.some((tab) => tab.kind === "session" && tab.sessionId === sessionId && !tab.ended);
 
   return (
     <div className="flex h-screen">
@@ -146,23 +200,32 @@ export default function App() {
           <div role="tablist" className="flex shrink-0 overflow-x-auto border-b border-line bg-panel">
             {tabs.map((tab) => (
               <div
-                key={tab.sessionId}
+                key={tab.key}
                 className={`flex items-center border-r border-line text-sm ${
-                  tab.sessionId === activeId ? "bg-canvas" : "text-muted"
+                  tab.key === activeKey ? "bg-canvas" : "text-muted"
                 }`}
               >
                 <button
                   role="tab"
-                  aria-selected={tab.sessionId === activeId}
-                  className="max-w-56 truncate py-2 pl-3 pr-2"
-                  onClick={() => setActiveId(tab.sessionId)}
+                  aria-selected={tab.key === activeKey}
+                  title={tab.kind === "editor" ? tab.path : tab.title}
+                  className="flex max-w-56 items-center gap-1.5 py-2 pl-3 pr-2"
+                  onClick={() => setActiveKey(tab.key)}
                 >
-                  {tab.ended ? <s>{tab.title}</s> : tab.title}
+                  {tab.kind === "editor" && <FileText size={13} className="shrink-0" />}
+                  <span className="truncate">
+                    {tab.kind === "session" && tab.ended ? <s>{tab.title}</s> : tab.title}
+                  </span>
+                  {tab.kind === "editor" && tab.dirty && (
+                    <span aria-label="未保存" className="text-accent">
+                      ●
+                    </span>
+                  )}
                 </button>
                 <button
                   aria-label={`关闭 ${tab.title}`}
                   className="mr-1.5 rounded p-1 hover:bg-line"
-                  onClick={() => requestCloseTab(tab)}
+                  onClick={() => requestClose(tab.key)}
                 >
                   <X size={14} />
                 </button>
@@ -170,7 +233,7 @@ export default function App() {
             ))}
           </div>
         )}
-        {tabs.some((tab) => tab.sessionId === activeId) && (
+        {activeTab?.kind === "session" && (
           <div className="flex shrink-0 items-center justify-between border-b border-line px-2 py-1">
             <div role="radiogroup" aria-label="视图" className="flex rounded-md bg-panel p-0.5 text-xs">
               {(
@@ -179,14 +242,14 @@ export default function App() {
                   ["files", "文件", FolderOpen],
                 ] as const
               ).map(([view, label, Icon]) => {
-                const current = tabs.find((tab) => tab.sessionId === activeId)!.view === view;
+                const current = activeTab.view === view;
                 return (
                   <button
                     key={view}
                     role="radio"
                     aria-checked={current}
                     className={`flex items-center gap-1.5 rounded px-2.5 py-1 ${current ? "bg-canvas shadow-sm" : "text-muted"}`}
-                    onClick={() => setView(activeId!, view)}
+                    onClick={() => setView(activeTab.key, view)}
                   >
                     <Icon size={13} />
                     {label}
@@ -205,25 +268,44 @@ export default function App() {
           )}
           {tabs.map((tab) => (
             <div
-              key={tab.sessionId}
+              key={tab.key}
               className="absolute inset-0"
-              style={{ display: tab.sessionId === activeId ? "block" : "none" }}
+              style={{ display: tab.key === activeKey ? "block" : "none" }}
             >
-              <div className="h-full" style={{ display: tab.view === "terminal" ? "block" : "none" }}>
-                <TerminalView
+              {tab.kind === "session" ? (
+                <>
+                  <div className="h-full" style={{ display: tab.view === "terminal" ? "block" : "none" }}>
+                    <TerminalView
+                      sessionId={tab.sessionId}
+                      visible={tab.key === activeKey && tab.view === "terminal"}
+                      onEnd={() => markEnded(tab.sessionId)}
+                    />
+                  </div>
+                  {!tab.ended && (
+                    <div className="h-full" style={{ display: tab.view === "files" ? "block" : "none" }}>
+                      <FileBrowser
+                        sessionId={tab.sessionId}
+                        active={tab.key === activeKey && tab.view === "files"}
+                        onNotice={setNotice}
+                        onOpenFile={(path) => openFile(tab.sessionId, path)}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Suspense fallback={<p className="p-6 text-sm text-muted">正在加载编辑器…</p>}>
+                <EditorView
                   sessionId={tab.sessionId}
-                  visible={tab.sessionId === activeId && tab.view === "terminal"}
-                  onEnd={() => markEnded(tab.sessionId)}
+                  path={tab.path}
+                  connected={connected(tab.sessionId)}
+                  visible={tab.key === activeKey}
+                  onDirtyChange={(dirty) =>
+                    updateTab(tab.key, (current) =>
+                      current.kind === "editor" && current.dirty !== dirty ? { ...current, dirty } : current,
+                    )
+                  }
                 />
-              </div>
-              {!tab.ended && (
-                <div className="h-full" style={{ display: tab.view === "files" ? "block" : "none" }}>
-                  <FileBrowser
-                    sessionId={tab.sessionId}
-                    active={tab.sessionId === activeId && tab.view === "files"}
-                    onNotice={setNotice}
-                  />
-                </div>
+                </Suspense>
               )}
             </div>
           ))}
@@ -286,12 +368,21 @@ export default function App() {
           onClose={close}
         />
       )}
-      {dialog?.kind === "closeTab" && (
+      {dialog?.kind === "closeTabs" && (
         <ConfirmDialog
-          title="关闭连接"
-          message={`“${dialog.tab.title}”还有 ${dialog.active} 个传输未完成。关闭后这些传输会被取消，未完成的部分会被删除。`}
-          confirmLabel="关闭并取消传输"
-          onConfirm={async () => closeTab(dialog.tab.sessionId)}
+          title="关闭"
+          message={dialog.message}
+          confirmLabel="仍然关闭"
+          onConfirm={async () => closeTabs(dialog.key)}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === "quit" && (
+        <ConfirmDialog
+          title="退出 sshtool"
+          message="有文件尚未保存，退出后这些修改会丢失。"
+          confirmLabel="不保存并退出"
+          onConfirm={() => getCurrentWindow().destroy()}
           onClose={close}
         />
       )}

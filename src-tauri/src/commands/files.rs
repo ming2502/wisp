@@ -34,7 +34,7 @@ async fn open_fs(
         .clone())
 }
 
-async fn browser(state: &AppState, session_id: Id) -> Result<Arc<RemoteFs>, String> {
+pub async fn browser(state: &AppState, session_id: Id) -> Result<Arc<RemoteFs>, String> {
     open_fs(state, |s| &s.browsers, session_id).await
 }
 

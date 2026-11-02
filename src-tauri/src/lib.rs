@@ -16,6 +16,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::core_version,
             commands::connection::ssh_connect,
+            commands::editor::editor_open,
+            commands::editor::editor_save,
             commands::files::sftp_list,
             commands::files::sftp_mkdir,
             commands::files::sftp_rename,
