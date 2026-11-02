@@ -157,3 +157,103 @@ export function terminalAck(terminalId: number, bytes: number): Promise<void> {
 export function terminalClose(terminalId: number): Promise<void> {
   return invoke("terminal_close", { terminalId });
 }
+
+export type EntryKind = "file" | "dir" | "symlink" | "other";
+
+export interface RemoteEntry {
+  name: string;
+  path: string;
+  kind: EntryKind;
+  size: number;
+  modified: number | null;
+  permissions: number | null;
+  linkToDir: boolean;
+}
+
+export interface Listing {
+  path: string;
+  entries: RemoteEntry[];
+}
+
+export interface Enqueued {
+  files: number;
+  skipped: number;
+}
+
+export type TransferState =
+  | { kind: "queued" }
+  | { kind: "running" }
+  | { kind: "paused" }
+  | { kind: "completed" }
+  | { kind: "failed"; message: string }
+  | { kind: "cancelled" };
+
+export interface TransferInfo {
+  id: number;
+  owner: number;
+  direction: "upload" | "download";
+  name: string;
+  local: string;
+  remote: string;
+  size: number;
+  transferred: number;
+  state: TransferState;
+}
+
+export function sftpList(sessionId: number, path: string | null): Promise<Listing> {
+  return invoke("sftp_list", { sessionId, path });
+}
+
+export function sftpMkdir(sessionId: number, dir: string, name: string): Promise<string> {
+  return invoke("sftp_mkdir", { sessionId, dir, name });
+}
+
+export function sftpRename(sessionId: number, path: string, newName: string): Promise<string> {
+  return invoke("sftp_rename", { sessionId, path, newName });
+}
+
+export function sftpRemove(sessionId: number, paths: string[]): Promise<void> {
+  return invoke("sftp_remove", { sessionId, paths });
+}
+
+export function sftpChmod(sessionId: number, path: string, mode: number): Promise<void> {
+  return invoke("sftp_chmod", { sessionId, path, mode });
+}
+
+export function transferUpload(
+  sessionId: number,
+  localPaths: string[],
+  remoteDir: string,
+): Promise<Enqueued> {
+  return invoke("transfer_upload", { sessionId, localPaths, remoteDir });
+}
+
+export function transferDownload(
+  sessionId: number,
+  remotePaths: string[],
+  localDir: string,
+): Promise<Enqueued> {
+  return invoke("transfer_download", { sessionId, remotePaths, localDir });
+}
+
+export function transferPause(id: number): Promise<void> {
+  return invoke("transfer_pause", { id });
+}
+
+export function transferResume(id: number): Promise<void> {
+  return invoke("transfer_resume", { id });
+}
+
+export function transferCancel(id: number): Promise<void> {
+  return invoke("transfer_cancel", { id });
+}
+
+export function transfersClear(): Promise<void> {
+  return invoke("transfers_clear");
+}
+
+export function transfersSubscribe(
+  onChange: (list: TransferInfo[]) => void,
+): Promise<TransferInfo[]> {
+  return invoke("transfers_subscribe", { onChange: new Channel<TransferInfo[]>(onChange) });
+}

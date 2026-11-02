@@ -118,6 +118,7 @@ pub fn answer_prompt(
 #[tauri::command]
 pub async fn ssh_disconnect(state: State<'_, AppState>, session_id: Id) -> Result<(), String> {
     let session = state.sessions.lock().unwrap().remove(&session_id);
+    super::files::forget_session(&state, session_id);
     if let Some(session) = session {
         session.disconnect().await;
     }

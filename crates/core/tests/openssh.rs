@@ -5,93 +5,13 @@
 mod common;
 
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
+use common::sshd::*;
 use common::*;
 use sshtool_core::connection::{Auth, ConnectOptions};
 use sshtool_core::terminal::{TerminalEnd, TerminalEvent, TerminalSize};
-
-const SSHD: &str = "/usr/sbin/sshd";
-
-struct Kill(Child);
-
-impl Drop for Kill {
-    fn drop(&mut self) {
-        let _ = self.0.kill();
-        let _ = self.0.wait();
-    }
-}
-
-fn free_port() -> u16 {
-    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
-    listener.local_addr().unwrap().port()
-}
-
-fn start_sshd(dir: &Path, port: u16, authorized: &str) -> Kill {
-    let host_key = write_key(dir, "ssh_host_ed25519_key", &new_key());
-    let authorized_keys = dir.join("authorized_keys");
-    std::fs::write(&authorized_keys, authorized).unwrap();
-    let config = dir.join("sshd_config");
-    std::fs::write(
-        &config,
-        format!(
-            "Port {port}\nListenAddress 127.0.0.1\nHostKey {}\nAuthorizedKeysFile {}\n\
-             PidFile {}\nStrictModes no\nUsePAM no\nPasswordAuthentication no\n\
-             KbdInteractiveAuthentication no\n",
-            host_key.display(),
-            authorized_keys.display(),
-            dir.join("sshd.pid").display(),
-        ),
-    )
-    .unwrap();
-    let child = Command::new(SSHD)
-        .args(["-D", "-e", "-f"])
-        .arg(&config)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    Kill(child)
-}
-
-async fn wait_for_port(port: u16) {
-    for _ in 0..100 {
-        if tokio::net::TcpStream::connect(("127.0.0.1", port))
-            .await
-            .is_ok()
-        {
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-    panic!("sshd did not start listening on {port}");
-}
-
-fn start_agent(dir: &Path) -> Option<(Kill, std::path::PathBuf)> {
-    let socket = dir.join("agent.sock");
-    let child = Command::new("ssh-agent")
-        .args(["-D", "-a"])
-        .arg(&socket)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    let agent = Kill(child);
-    for _ in 0..100 {
-        if socket.exists() {
-            return Some((agent, socket));
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    }
-    panic!("ssh-agent did not create its socket");
-}
-
-fn current_user() -> String {
-    let output = Command::new("id").arg("-un").output().unwrap();
-    String::from_utf8(output.stdout).unwrap().trim().to_string()
-}
 
 // A single test because SSH_AUTH_SOCK is process-wide state.
 #[test]

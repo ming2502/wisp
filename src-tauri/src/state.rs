@@ -5,8 +5,11 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use sshtool_core::connection::Session;
+use sshtool_core::sftp::RemoteFs;
 use sshtool_core::store::HostStore;
 use sshtool_core::terminal::Terminal;
+use sshtool_core::transfer::{TransferInfo, TransferQueue};
+use tauri::ipc::Channel;
 use tokio::sync::oneshot;
 use zeroize::Zeroizing;
 
@@ -25,6 +28,12 @@ pub struct AppState {
     pub sessions: Mutex<HashMap<Id, Arc<Session>>>,
     pub terminals: Mutex<HashMap<Id, Terminal>>,
     pub prompts: Mutex<HashMap<Id, PendingPrompt>>,
+    /// SFTP for browsing, and a second one for transfers so that a long upload never delays a
+    /// directory listing. Both are opened on first use.
+    pub browsers: Mutex<HashMap<Id, Arc<RemoteFs>>>,
+    pub transfer_channels: Mutex<HashMap<Id, Arc<RemoteFs>>>,
+    pub transfers: TransferQueue,
+    pub transfer_listener: Mutex<Option<Channel<Vec<TransferInfo>>>>,
 }
 
 impl AppState {

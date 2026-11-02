@@ -6,6 +6,7 @@ use tauri::Manager;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(state::AppState::default())
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
@@ -15,6 +16,18 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::core_version,
             commands::connection::ssh_connect,
+            commands::files::sftp_list,
+            commands::files::sftp_mkdir,
+            commands::files::sftp_rename,
+            commands::files::sftp_remove,
+            commands::files::sftp_chmod,
+            commands::files::transfer_upload,
+            commands::files::transfer_download,
+            commands::files::transfer_pause,
+            commands::files::transfer_resume,
+            commands::files::transfer_cancel,
+            commands::files::transfers_clear,
+            commands::files::transfers_subscribe,
             commands::hosts::hosts_list,
             commands::hosts::host_save,
             commands::hosts::host_delete,

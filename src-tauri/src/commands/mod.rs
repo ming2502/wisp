@@ -1,4 +1,5 @@
 pub mod connection;
+pub mod files;
 pub mod hosts;
 pub mod terminal;
 

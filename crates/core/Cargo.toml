@@ -10,10 +10,11 @@ keyring = { version = "3.6", features = ["apple-native", "windows-native"] }
 log = "0.4"
 # ring avoids the NASM and CMake build requirements of the default aws-lc-rs backend on Windows.
 russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2"] }
+russh-sftp = "3.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "net", "rt", "sync", "time"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "rt", "sync", "time"] }
 uuid = { version = "1", features = ["v4"] }
 zeroize = { version = "1", features = ["serde"] }
 

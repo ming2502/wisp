@@ -20,6 +20,9 @@ pub use auth::Auth;
 use known_hosts::HostKeyVerdict;
 
 const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
+/// How much a server may send on a channel before waiting for us. The 2 MiB default caps downloads
+/// at 2 MiB per round trip, about 20 MiB/s at 100 ms.
+const WINDOW_BYTES: u32 = 8 * 1024 * 1024;
 const TCP_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 /// Time allowed from TCP connected until the server presents its host key.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(20);
@@ -284,6 +287,7 @@ impl Session {
 fn client_config() -> client::Config {
     client::Config {
         keepalive_interval: Some(KEEPALIVE_INTERVAL),
+        window_size: WINDOW_BYTES,
         preferred: preferred_algorithms(),
         ..Default::default()
     }

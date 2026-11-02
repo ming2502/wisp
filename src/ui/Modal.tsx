@@ -9,9 +9,19 @@ interface Props {
   width?: string;
   /** Prevents closing by Escape or clicking outside, for steps that must be answered explicitly. */
   modal?: boolean;
+  /** Replaces the default of focusing the first field, which selects all of its text. */
+  onOpenAutoFocus?: (event: Event) => void;
 }
 
-export function Modal({ title, open, onClose, children, width = "max-w-md", modal = false }: Props) {
+export function Modal({
+  title,
+  open,
+  onClose,
+  children,
+  width = "max-w-md",
+  modal = false,
+  onOpenAutoFocus,
+}: Props) {
   const block = (event: Event) => {
     if (modal) event.preventDefault();
   };
@@ -21,6 +31,7 @@ export function Modal({ title, open, onClose, children, width = "max-w-md", moda
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/30" />
         <Dialog.Content
           aria-describedby={undefined}
+          onOpenAutoFocus={onOpenAutoFocus}
           onEscapeKeyDown={block}
           onPointerDownOutside={block}
           className={`fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[calc(100vw-2rem)] ${width} -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-line bg-canvas p-5 shadow-xl`}
