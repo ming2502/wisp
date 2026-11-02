@@ -115,14 +115,30 @@ pub fn answer_prompt(
     }
 }
 
+/// Closes a session the user is done with, cancelling its transfers.
 #[tauri::command]
 pub async fn ssh_disconnect(state: State<'_, AppState>, session_id: Id) -> Result<(), String> {
     let session = state.sessions.lock().unwrap().remove(&session_id);
-    super::files::forget_session(&state, session_id);
+    super::files::forget_session(&state, session_id, true);
     if let Some(session) = session {
         session.disconnect().await;
     }
     Ok(())
+}
+
+/// Moves what belonged to a lost session over to the session that reconnected in its place.
+#[tauri::command]
+pub async fn ssh_replace(
+    state: State<'_, AppState>,
+    old_session_id: Id,
+    new_session_id: Id,
+) -> Result<(), String> {
+    let old = state.sessions.lock().unwrap().remove(&old_session_id);
+    super::files::forget_session(&state, old_session_id, false);
+    if let Some(old) = old {
+        old.disconnect().await;
+    }
+    super::files::rebind_transfers(&state, old_session_id, new_session_id).await
 }
 
 #[cfg(test)]

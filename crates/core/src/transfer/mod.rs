@@ -344,6 +344,24 @@ impl TransferQueue {
         }
     }
 
+    /// Moves `old_owner`'s unfinished transfers to `new_owner` and its file system, so that after a
+    /// reconnect they can be resumed instead of started over. Running ones are left to fail.
+    pub fn rebind(&self, old_owner: Owner, new_owner: Owner, fs: Arc<RemoteFs>) {
+        let mut inner = self.inner.lock().unwrap();
+        for entry in &mut inner.entries {
+            let movable = matches!(
+                entry.info.state,
+                TransferState::Queued | TransferState::Paused | TransferState::Failed { .. }
+            );
+            if entry.info.owner == old_owner && movable {
+                entry.info.owner = new_owner;
+                entry.fs = fs.clone();
+            }
+        }
+        drop(inner);
+        self.changed.notify_one();
+    }
+
     pub fn clear_finished(&self) {
         self.inner
             .lock()

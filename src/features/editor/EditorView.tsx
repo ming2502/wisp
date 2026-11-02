@@ -7,7 +7,8 @@ import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { Modal } from "../../ui/Modal";
 import { dangerButton, primaryButton, secondaryButton } from "../../ui/controls";
 import { DiffDialog } from "./DiffDialog";
-import { editorState, followColorScheme, languageFor } from "./codemirror";
+import { useSettings } from "../settings/SettingsContext";
+import { editorState, languageFor, themeFor } from "./codemirror";
 
 type Dialog =
   | { kind: "conflict"; current: FileVersion }
@@ -32,6 +33,13 @@ function Badge({ children, tone = "muted" }: { children: React.ReactNode; tone?:
 }
 
 export function EditorView({ sessionId, path, connected, visible, onDirtyChange }: Props) {
+  const { dark } = useSettings();
+  const theme = useRef(new Compartment());
+  // A reconnect changes the session but must not reload the file and lose the edits.
+  const session = useRef(sessionId);
+  session.current = sessionId;
+  const darkNow = useRef(dark);
+  darkNow.current = dark;
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<CodeMirror | null>(null);
   const baseline = useRef<Text | null>(null);
@@ -54,17 +62,16 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
   // Loads the file and builds the editor. `generation` changes to reload from the server.
   useEffect(() => {
     let disposed = false;
-    let stopTheme = () => {};
     setLoadError(null);
-    editorOpen(sessionId, path)
+    editorOpen(session.current, path)
       .then(async (opened) => {
         if (disposed) return;
-        const theme = new Compartment();
         const language = new Compartment();
         const state = editorState({
           doc: opened.content,
+          dark: darkNow.current,
           readOnly: opened.readOnly,
-          theme,
+          theme: theme.current,
           language,
           onSave: () => saveRef.current(),
           onChange: (doc) => setDirty(baseline.current !== null && !doc.eq(baseline.current)),
@@ -73,7 +80,6 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
         const editor = new CodeMirror({ state, parent: host.current! });
         view.current = editor;
         baseline.current = state.doc;
-        stopTheme = followColorScheme(editor, theme);
         setFile(opened);
         setDirty(false);
         setSaveError(null);
@@ -87,9 +93,12 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
       });
     return () => {
       disposed = true;
-      stopTheme();
     };
-  }, [sessionId, path, generation]);
+  }, [path, generation]);
+
+  useEffect(() => {
+    view.current?.dispatch({ effects: theme.current.reconfigure(themeFor(dark)) });
+  }, [dark]);
 
   useEffect(() => () => view.current?.destroy(), []);
 
@@ -105,7 +114,7 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
       setSaveError(null);
       const doc = editor.state.doc;
       try {
-        const version = await editorSave(sessionId, file.path, {
+        const version = await editorSave(session.current, file.path, {
           content: doc.toString(),
           format: file.format,
           expected: file.version,
@@ -126,13 +135,13 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
         setSaving(false);
       }
     },
-    [connected, file, saving, sessionId],
+    [connected, file, saving],
   );
   saveRef.current = () => void save();
 
   async function showDiff() {
     try {
-      const server = await editorOpen(sessionId, path);
+      const server = await editorOpen(session.current, path);
       setDialog({ kind: "diff", server: server.content });
     } catch (reason) {
       setSaveError(asEditFailure(reason).message);

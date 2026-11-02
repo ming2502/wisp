@@ -1,6 +1,16 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { FileText, FolderOpen, SquareTerminal, X } from "lucide-react";
+import {
+  Command as CommandIcon,
+  FileDown,
+  FileText,
+  FolderOpen,
+  Plus,
+  RotateCw,
+  Settings as SettingsIcon,
+  SquareTerminal,
+  X,
+} from "lucide-react";
 import { ConnectDialog } from "../features/connect/ConnectDialog";
 import { GroupEditor } from "../features/hosts/GroupEditor";
 import { HostEditor } from "../features/hosts/HostEditor";
@@ -10,24 +20,31 @@ import { TerminalView } from "../features/terminal/TerminalView";
 import { FileBrowser } from "../features/files/FileBrowser";
 import { TransfersPanel } from "../features/transfers/TransfersPanel";
 import { createSpeedTracker } from "../features/transfers/speed";
+import { CommandPalette, type PaletteAction } from "../features/palette/CommandPalette";
+import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { primaryButton, secondaryButton } from "../ui/controls";
+import { isMac, isShortcut, shortcutLabel } from "../lib/platform";
 import {
   groupDelete,
   hostDelete,
   hostsList,
   sshDisconnect,
+  sshReplace,
   transfersSubscribe,
   type Group,
-  type TransferInfo,
   type Host,
   type HostList as HostData,
+  type TerminalEnd,
+  type TransferInfo,
 } from "../ipc";
-
 import {
   nextActive,
   openEditor,
+  replaceSession,
   sessionKey,
   tabsClosedWith,
+  type SessionTab,
   type Tab,
   type View,
 } from "./tabs";
@@ -37,15 +54,43 @@ const EditorView = lazy(() =>
   import("../features/editor/EditorView").then((module) => ({ default: module.EditorView })),
 );
 
+/** Space for the macOS window buttons, which sit over the content with the overlay title bar. */
+const DRAG_STRIP = isMac ? "h-7" : "h-0";
+
 type Dialog =
-  | { kind: "connect"; host: Host }
+  | { kind: "connect"; host: Host; replacing?: number }
   | { kind: "editHost"; host: Host | null }
   | { kind: "deleteHost"; host: Host }
   | { kind: "editGroup"; group: Group | null }
   | { kind: "deleteGroup"; group: Group }
   | { kind: "import" }
+  | { kind: "palette" }
+  | { kind: "settings" }
   | { kind: "closeTabs"; key: string; message: string }
   | { kind: "quit" };
+
+function Welcome({ onNewHost, onImport, onPalette }: { onNewHost: () => void; onImport: () => void; onPalette: () => void }) {
+  return (
+    <div className="flex h-full items-center justify-center p-8">
+      <div className="max-w-sm text-center">
+        <SquareTerminal size={36} className="mx-auto text-muted" strokeWidth={1.5} />
+        <h2 className="mt-4 text-lg font-semibold">sshtool</h2>
+        <p className="mt-1 text-sm text-muted">在左侧选择主机连接，或者：</p>
+        <div className="mt-5 flex justify-center gap-2">
+          <button type="button" className={primaryButton} onClick={onNewHost}>
+            新建主机
+          </button>
+          <button type="button" className={secondaryButton} onClick={onImport}>
+            从 SSH 配置导入
+          </button>
+        </div>
+        <button type="button" className="mt-6 text-xs text-muted hover:text-ink" onClick={onPalette}>
+          按 <kbd className="rounded border border-line px-1">{shortcutLabel("K")}</kbd> 打开命令面板
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const [data, setData] = useState<HostData>({ hosts: [], groups: [] });
@@ -119,19 +164,27 @@ export default function App() {
 
   const close = () => setDialog(null);
 
-  function addTab(sessionId: number, title: string) {
-    const key = sessionKey(sessionId);
-    setTabs((current) => [...current, { kind: "session", key, sessionId, title, ended: false, view: "terminal" }]);
-    setActiveKey(key);
-  }
-
   function updateTab(key: string, change: (tab: Tab) => Tab) {
     setTabs((current) => current.map((tab) => (tab.key === key ? change(tab) : tab)));
   }
 
-  function markEnded(sessionId: number) {
-    updateTab(sessionKey(sessionId), (tab) => ({ ...tab, ended: true }));
-    void sshDisconnect(sessionId);
+  function connected(sessionId: number, host: Host, replacing?: number) {
+    if (replacing !== undefined) {
+      void sshReplace(replacing, sessionId).catch((reason) => setNotice(`传输未能转到新连接：${reason}`));
+      setTabs((current) => replaceSession(current, replacing, sessionId));
+      setActiveKey(sessionKey(replacing));
+      return;
+    }
+    const key = sessionKey(sessionId);
+    setTabs((current) => [
+      ...current,
+      { kind: "session", key, sessionId, hostId: host.id, title: host.name, end: null, view: "terminal" },
+    ]);
+    setActiveKey(key);
+  }
+
+  function markEnded(key: string, end: TerminalEnd) {
+    updateTab(key, (tab) => (tab.kind === "session" ? { ...tab, end: end.kind } : tab));
   }
 
   function setView(key: string, view: View) {
@@ -142,6 +195,12 @@ export default function App() {
     const opened = openEditor(tabs, sessionId, path);
     setTabs(opened.tabs);
     setActiveKey(opened.key);
+  }
+
+  function reconnect(tab: SessionTab) {
+    const host = data.hosts.find((h) => h.id === tab.hostId);
+    if (host) setDialog({ kind: "connect", host, replacing: tab.sessionId });
+    else setNotice("该主机已被删除，无法重新连接");
   }
 
   function requestClose(key: string) {
@@ -170,120 +229,196 @@ export default function App() {
   }
 
   const activeTab = tabs.find((tab) => tab.key === activeKey) ?? null;
-  const connected = (sessionId: number) =>
-    tabs.some((tab) => tab.kind === "session" && tab.sessionId === sessionId && !tab.ended);
+  const isConnected = (sessionId: number) =>
+    tabs.some((tab) => tab.kind === "session" && tab.sessionId === sessionId && tab.end !== "disconnected");
+
+  // Global shortcuts, caught before the terminal sees them.
+  const shortcuts = useRef<(event: KeyboardEvent) => void>(() => {});
+  shortcuts.current = (event) => {
+    const handled = (() => {
+      if (isShortcut(event, "KeyK")) return setDialog({ kind: "palette" }), true;
+      if (isShortcut(event, "Comma")) return setDialog({ kind: "settings" }), true;
+      if (isShortcut(event, "KeyW") && activeKey) return requestClose(activeKey), true;
+      const digit = /^Digit([1-9])$/.exec(event.code);
+      if (digit && isShortcut(event, event.code)) {
+        const tab = tabs[Number(digit[1]) - 1];
+        if (tab) setActiveKey(tab.key);
+        return true;
+      }
+      if (event.ctrlKey && event.key === "Tab" && tabs.length > 1) {
+        const index = tabs.findIndex((tab) => tab.key === activeKey);
+        const step = event.shiftKey ? -1 : 1;
+        setActiveKey(tabs[(index + step + tabs.length) % tabs.length].key);
+        return true;
+      }
+      return false;
+    })();
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => shortcuts.current(event);
+    window.addEventListener("keydown", listener, true);
+    return () => window.removeEventListener("keydown", listener, true);
+  }, []);
+
+  const actions: PaletteAction[] = [
+    { id: "new-host", label: "新建主机", icon: <Plus size={15} />, run: () => setDialog({ kind: "editHost", host: null }) },
+    { id: "import", label: "从 SSH 配置导入", icon: <FileDown size={15} />, run: () => setDialog({ kind: "import" }) },
+    { id: "settings", label: "设置", icon: <SettingsIcon size={15} />, shortcut: shortcutLabel(","), run: () => setDialog({ kind: "settings" }) },
+    ...(activeTab?.kind === "session"
+      ? [
+          {
+            id: "toggle-view",
+            label: activeTab.view === "terminal" ? "切换到文件" : "切换到终端",
+            icon: activeTab.view === "terminal" ? <FolderOpen size={15} /> : <SquareTerminal size={15} />,
+            run: () => setView(activeTab.key, activeTab.view === "terminal" ? "files" : "terminal"),
+          },
+        ]
+      : []),
+    ...(activeTab
+      ? [{ id: "close-tab", label: `关闭“${activeTab.title}”`, icon: <X size={15} />, shortcut: shortcutLabel("W"), run: () => requestClose(activeTab.key) }]
+      : []),
+  ];
 
   return (
     <div className="flex h-screen">
-      <aside className="w-72 shrink-0 border-r border-line bg-panel">
-        {loadError ? (
-          <p role="alert" className="p-4 text-sm text-danger">
-            {loadError}
-          </p>
-        ) : (
-          <HostList
-            hosts={data.hosts}
-            groups={data.groups}
-            onConnect={(host) => setDialog({ kind: "connect", host })}
-            onNewHost={() => setDialog({ kind: "editHost", host: null })}
-            onEditHost={(host) => setDialog({ kind: "editHost", host })}
-            onDeleteHost={(host) => setDialog({ kind: "deleteHost", host })}
-            onNewGroup={() => setDialog({ kind: "editGroup", group: null })}
-            onEditGroup={(group) => setDialog({ kind: "editGroup", group })}
-            onDeleteGroup={(group) => setDialog({ kind: "deleteGroup", group })}
-            onImport={() => setDialog({ kind: "import" })}
-          />
-        )}
+      <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-panel">
+        <div data-tauri-drag-region className={`${DRAG_STRIP} shrink-0`} />
+        <div className="min-h-0 flex-1">
+          {loadError ? (
+            <p role="alert" className="p-4 text-sm text-danger">
+              {loadError}
+            </p>
+          ) : (
+            <HostList
+              hosts={data.hosts}
+              groups={data.groups}
+              onConnect={(host) => setDialog({ kind: "connect", host })}
+              onNewHost={() => setDialog({ kind: "editHost", host: null })}
+              onEditHost={(host) => setDialog({ kind: "editHost", host })}
+              onDeleteHost={(host) => setDialog({ kind: "deleteHost", host })}
+              onNewGroup={() => setDialog({ kind: "editGroup", group: null })}
+              onEditGroup={(group) => setDialog({ kind: "editGroup", group })}
+              onDeleteGroup={(group) => setDialog({ kind: "deleteGroup", group })}
+              onImport={() => setDialog({ kind: "import" })}
+            />
+          )}
+        </div>
+        <div className="flex shrink-0 items-center justify-between border-t border-line px-2 py-1.5">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted hover:bg-line hover:text-ink"
+            onClick={() => setDialog({ kind: "palette" })}
+          >
+            <CommandIcon size={13} />
+            命令面板
+            <kbd className="text-[11px]">{shortcutLabel("K")}</kbd>
+          </button>
+          <button
+            type="button"
+            aria-label="设置"
+            title={`设置 (${shortcutLabel(",")})`}
+            className="rounded p-1 text-muted hover:bg-line hover:text-ink"
+            onClick={() => setDialog({ kind: "settings" })}
+          >
+            <SettingsIcon size={15} />
+          </button>
+        </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
-        {tabs.length > 0 && (
-          <div role="tablist" className="flex shrink-0 overflow-x-auto border-b border-line bg-panel">
-            {tabs.map((tab) => (
-              <div
-                key={tab.key}
-                className={`flex items-center border-r border-line text-sm ${
-                  tab.key === activeKey ? "bg-canvas" : "text-muted"
-                }`}
+        <div data-tauri-drag-region className="flex min-h-9 shrink-0 overflow-x-auto border-b border-line bg-panel" role="tablist">
+          {tabs.map((tab) => (
+            <div
+              key={tab.key}
+              className={`flex items-center border-r border-line text-sm ${tab.key === activeKey ? "bg-canvas" : "text-muted"}`}
+            >
+              <button
+                role="tab"
+                aria-selected={tab.key === activeKey}
+                title={tab.kind === "editor" ? tab.path : tab.title}
+                className="flex max-w-56 items-center gap-1.5 py-2 pl-3 pr-2"
+                onClick={() => setActiveKey(tab.key)}
               >
-                <button
-                  role="tab"
-                  aria-selected={tab.key === activeKey}
-                  title={tab.kind === "editor" ? tab.path : tab.title}
-                  className="flex max-w-56 items-center gap-1.5 py-2 pl-3 pr-2"
-                  onClick={() => setActiveKey(tab.key)}
-                >
-                  {tab.kind === "editor" && <FileText size={13} className="shrink-0" />}
-                  <span className="truncate">
-                    {tab.kind === "session" && tab.ended ? <s>{tab.title}</s> : tab.title}
+                {tab.kind === "editor" && <FileText size={13} className="shrink-0" />}
+                {tab.kind === "session" && tab.end === "disconnected" && (
+                  <span aria-label="已断开" className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
+                )}
+                <span className="truncate">{tab.title}</span>
+                {tab.kind === "editor" && tab.dirty && (
+                  <span aria-label="未保存" className="text-accent">
+                    ●
                   </span>
-                  {tab.kind === "editor" && tab.dirty && (
-                    <span aria-label="未保存" className="text-accent">
-                      ●
-                    </span>
-                  )}
-                </button>
-                <button
-                  aria-label={`关闭 ${tab.title}`}
-                  className="mr-1.5 rounded p-1 hover:bg-line"
-                  onClick={() => requestClose(tab.key)}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                )}
+              </button>
+              <button aria-label={`关闭 ${tab.title}`} className="mr-1.5 rounded p-1 hover:bg-line" onClick={() => requestClose(tab.key)}>
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
         {activeTab?.kind === "session" && (
-          <div className="flex shrink-0 items-center justify-between border-b border-line px-2 py-1">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-2 py-1">
             <div role="radiogroup" aria-label="视图" className="flex rounded-md bg-panel p-0.5 text-xs">
               {(
                 [
                   ["terminal", "终端", SquareTerminal],
                   ["files", "文件", FolderOpen],
                 ] as const
-              ).map(([view, label, Icon]) => {
-                const current = activeTab.view === view;
-                return (
-                  <button
-                    key={view}
-                    role="radio"
-                    aria-checked={current}
-                    className={`flex items-center gap-1.5 rounded px-2.5 py-1 ${current ? "bg-canvas shadow-sm" : "text-muted"}`}
-                    onClick={() => setView(activeTab.key, view)}
-                  >
-                    <Icon size={13} />
-                    {label}
-                  </button>
-                );
-              })}
+              ).map(([view, label, Icon]) => (
+                <button
+                  key={view}
+                  role="radio"
+                  aria-checked={activeTab.view === view}
+                  className={`flex items-center gap-1.5 rounded px-2.5 py-1 ${activeTab.view === view ? "bg-canvas shadow-sm" : "text-muted"}`}
+                  onClick={() => setView(activeTab.key, view)}
+                >
+                  <Icon size={13} />
+                  {label}
+                </button>
+              ))}
             </div>
             {notice && <span className="truncate text-xs text-muted">{notice}</span>}
           </div>
         )}
+        {activeTab?.kind === "session" && activeTab.end && (
+          <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-panel px-3 py-1.5 text-sm">
+            <span className={activeTab.end === "disconnected" ? "text-danger" : "text-muted"}>
+              {activeTab.end === "disconnected"
+                ? "连接已断开。终端内容和未保存的编辑都已保留，未完成的传输可以在重连后继续。"
+                : "终端会话已结束，文件视图仍可使用。"}
+            </span>
+            <button type="button" className={`${primaryButton} flex shrink-0 items-center gap-1.5 py-1 text-xs`} onClick={() => reconnect(activeTab)}>
+              <RotateCw size={13} />
+              {activeTab.end === "disconnected" ? "重新连接" : "重新打开"}
+            </button>
+          </div>
+        )}
         <div className="relative min-h-0 flex-1">
           {tabs.length === 0 && (
-            <p className="flex h-full items-center justify-center text-sm text-muted">
-              在左侧选择主机以连接
-            </p>
+            <Welcome
+              onNewHost={() => setDialog({ kind: "editHost", host: null })}
+              onImport={() => setDialog({ kind: "import" })}
+              onPalette={() => setDialog({ kind: "palette" })}
+            />
           )}
           {tabs.map((tab) => (
-            <div
-              key={tab.key}
-              className="absolute inset-0"
-              style={{ display: tab.key === activeKey ? "block" : "none" }}
-            >
+            <div key={tab.key} className="absolute inset-0" style={{ display: tab.key === activeKey ? "block" : "none" }}>
               {tab.kind === "session" ? (
                 <>
                   <div className="h-full" style={{ display: tab.view === "terminal" ? "block" : "none" }}>
                     <TerminalView
                       sessionId={tab.sessionId}
                       visible={tab.key === activeKey && tab.view === "terminal"}
-                      onEnd={() => markEnded(tab.sessionId)}
+                      onEnd={(end) => markEnded(tab.key, end)}
                     />
                   </div>
-                  {!tab.ended && (
+                  {tab.end !== "disconnected" && (
                     <div className="h-full" style={{ display: tab.view === "files" ? "block" : "none" }}>
                       <FileBrowser
+                        key={tab.sessionId}
                         sessionId={tab.sessionId}
                         active={tab.key === activeKey && tab.view === "files"}
                         onNotice={setNotice}
@@ -294,17 +429,17 @@ export default function App() {
                 </>
               ) : (
                 <Suspense fallback={<p className="p-6 text-sm text-muted">正在加载编辑器…</p>}>
-                <EditorView
-                  sessionId={tab.sessionId}
-                  path={tab.path}
-                  connected={connected(tab.sessionId)}
-                  visible={tab.key === activeKey}
-                  onDirtyChange={(dirty) =>
-                    updateTab(tab.key, (current) =>
-                      current.kind === "editor" && current.dirty !== dirty ? { ...current, dirty } : current,
-                    )
-                  }
-                />
+                  <EditorView
+                    sessionId={tab.sessionId}
+                    path={tab.path}
+                    connected={isConnected(tab.sessionId)}
+                    visible={tab.key === activeKey}
+                    onDirtyChange={(dirty) =>
+                      updateTab(tab.key, (current) =>
+                        current.kind === "editor" && current.dirty !== dirty ? { ...current, dirty } : current,
+                      )
+                    }
+                  />
                 </Suspense>
               )}
             </div>
@@ -317,12 +452,23 @@ export default function App() {
         <ConnectDialog
           host={dialog.host}
           onConnected={(sessionId) => {
-            addTab(sessionId, dialog.host.name);
+            connected(sessionId, dialog.host, dialog.replacing);
             close();
           }}
           onClose={close}
         />
       )}
+      {dialog?.kind === "palette" && (
+        <CommandPalette
+          hosts={data.hosts}
+          tabs={tabs}
+          actions={actions}
+          onConnect={(host) => setDialog({ kind: "connect", host })}
+          onSwitch={setActiveKey}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === "settings" && <SettingsDialog onClose={close} />}
       {dialog?.kind === "editHost" && (
         <HostEditor
           host={dialog.host}
@@ -369,13 +515,7 @@ export default function App() {
         />
       )}
       {dialog?.kind === "closeTabs" && (
-        <ConfirmDialog
-          title="关闭"
-          message={dialog.message}
-          confirmLabel="仍然关闭"
-          onConfirm={async () => closeTabs(dialog.key)}
-          onClose={close}
-        />
+        <ConfirmDialog title="关闭" message={dialog.message} confirmLabel="仍然关闭" onConfirm={async () => closeTabs(dialog.key)} onClose={close} />
       )}
       {dialog?.kind === "quit" && (
         <ConfirmDialog
@@ -386,9 +526,7 @@ export default function App() {
           onClose={close}
         />
       )}
-      {dialog?.kind === "import" && (
-        <ImportDialog hosts={data.hosts} onImported={refresh} onClose={close} />
-      )}
+      {dialog?.kind === "import" && <ImportDialog hosts={data.hosts} onImported={refresh} onClose={close} />}
     </div>
   );
 }

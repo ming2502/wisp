@@ -2,6 +2,7 @@ pub mod connection;
 pub mod editor;
 pub mod files;
 pub mod hosts;
+pub mod settings;
 pub mod terminal;
 
 #[tauri::command]

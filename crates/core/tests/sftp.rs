@@ -234,6 +234,44 @@ async fn paused_transfers_resume_without_starting_over() {
 }
 
 #[tokio::test]
+async fn rebound_transfers_resume_on_the_new_channel() {
+    let Some(server) = RealServer::start().await else {
+        return;
+    };
+    let first = Arc::new(server.session.open_sftp().await.unwrap());
+    let (local, remote) = server.workspace("rebind");
+    let source = local.join("big.bin");
+    random_file(&source, 96 * 1024 * 1024);
+    first.mkdir(&remote, "up").await.unwrap();
+
+    let queue = TransferQueue::default();
+    queue
+        .upload(
+            1,
+            first.clone(),
+            vec![source.clone()],
+            &format!("{remote}/up"),
+        )
+        .await
+        .unwrap();
+    let paused = pause_midway(&queue).await;
+
+    // As after a reconnect: a new owner and a new SFTP channel take over.
+    let second = Arc::new(server.session.open_sftp().await.unwrap());
+    queue.rebind(1, 2, second);
+    drop(first);
+    let list = queue.list();
+    assert_eq!(list[0].owner, 2);
+    queue.resume(paused.id);
+    wait_for(&queue, "resumed upload", all_completed).await;
+    assert!(same_contents(&source, &local.join("up").join("big.bin")));
+
+    // Finished transfers are not moved.
+    queue.rebind(2, 3, Arc::new(server.session.open_sftp().await.unwrap()));
+    assert_eq!(queue.list()[0].owner, 2);
+}
+
+#[tokio::test]
 async fn cancelling_removes_partial_files() {
     let Some(server) = RealServer::start().await else {
         return;

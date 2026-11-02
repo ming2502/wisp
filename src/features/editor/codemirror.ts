@@ -5,18 +5,8 @@ import { LanguageDescription } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { oneDark } from "@codemirror/theme-one-dark";
 
-const darkQuery = "(prefers-color-scheme: dark)";
-
-export function prefersDark() {
-  return window.matchMedia(darkQuery).matches;
-}
-
-/** Follows the system light or dark appearance while the editor is open. */
-export function followColorScheme(view: EditorView, theme: Compartment) {
-  const media = window.matchMedia(darkQuery);
-  const apply = () => view.dispatch({ effects: theme.reconfigure(media.matches ? oneDark : []) });
-  media.addEventListener("change", apply);
-  return () => media.removeEventListener("change", apply);
+export function themeFor(dark: boolean): Extension {
+  return dark ? oneDark : [];
 }
 
 /** Loads syntax highlighting for the file name, if there is one for it. */
@@ -39,6 +29,7 @@ const baseTheme = EditorView.theme({
 
 interface Options {
   doc: string;
+  dark: boolean;
   readOnly: boolean;
   theme: Compartment;
   language: Compartment;
@@ -46,7 +37,7 @@ interface Options {
   onChange: (doc: Text) => void;
 }
 
-export function editorState({ doc, readOnly, theme, language, onSave, onChange }: Options) {
+export function editorState({ doc, dark, readOnly, theme, language, onSave, onChange }: Options) {
   return EditorState.create({
     doc,
     extensions: [
@@ -62,7 +53,7 @@ export function editorState({ doc, readOnly, theme, language, onSave, onChange }
       ]),
       basicSetup,
       baseTheme,
-      theme.of(prefersDark() ? oneDark : []),
+      theme.of(themeFor(dark)),
       language.of([]),
       EditorState.readOnly.of(readOnly),
       EditorView.updateListener.of((update) => {

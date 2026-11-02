@@ -1,8 +1,21 @@
+import type { TerminalEnd } from "../ipc";
+
 export type View = "terminal" | "files";
 
 export type Tab =
-  | { kind: "session"; key: string; sessionId: number; title: string; ended: boolean; view: View }
+  | {
+      kind: "session";
+      key: string;
+      sessionId: number;
+      hostId: string;
+      title: string;
+      /** Why the shell stopped, if it did. After "exited" the connection itself is still usable. */
+      end: TerminalEnd["kind"] | null;
+      view: View;
+    }
   | { kind: "editor"; key: string; sessionId: number; path: string; title: string; dirty: boolean };
+
+export type SessionTab = Extract<Tab, { kind: "session" }>;
 
 export function sessionKey(sessionId: number) {
   return `s${sessionId}`;
@@ -43,4 +56,12 @@ export function nextActive(tabs: Tab[], closing: Tab[], active: string | null): 
   if (remaining.length === 0) return null;
   const before = tabs.slice(0, Math.max(first, 0)).filter((tab) => !closingKeys.has(tab.key));
   return (before[before.length - 1] ?? remaining[0]).key;
+}
+
+/** Points a session tab and its editors at the session that replaced a lost one. */
+export function replaceSession(tabs: Tab[], oldId: number, newId: number): Tab[] {
+  return tabs.map((tab) => {
+    if (tab.sessionId !== oldId) return tab;
+    return tab.kind === "session" ? { ...tab, sessionId: newId, end: null } : { ...tab, sessionId: newId };
+  });
 }

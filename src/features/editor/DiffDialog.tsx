@@ -3,10 +3,10 @@ import { MergeView } from "@codemirror/merge";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { basicSetup } from "codemirror";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { Modal } from "../../ui/Modal";
 import { secondaryButton } from "../../ui/controls";
-import { prefersDark } from "./codemirror";
+import { useSettings } from "../settings/SettingsContext";
+import { themeFor } from "./codemirror";
 
 interface Props {
   server: string;
@@ -16,6 +16,7 @@ interface Props {
 
 /** Shows the server's current version beside the unsaved edits, both read-only. */
 export function DiffDialog({ server, mine, onClose }: Props) {
+  const { dark } = useSettings();
   // The dialog mounts its content after this component renders, so the view is created once the
   // container is attached rather than in the first effect.
   const [host, setHost] = useState<HTMLDivElement | null>(null);
@@ -26,7 +27,7 @@ export function DiffDialog({ server, mine, onClose }: Props) {
       basicSetup,
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
-      prefersDark() ? oneDark : [],
+      themeFor(dark),
     ];
     const view = new MergeView({
       a: { doc: server, extensions },
@@ -35,7 +36,7 @@ export function DiffDialog({ server, mine, onClose }: Props) {
       collapseUnchanged: { margin: 3, minSize: 6 },
     });
     return () => view.destroy();
-  }, [host, server, mine]);
+  }, [host, server, mine, dark]);
 
   return (
     <Modal title="对比修改" open onClose={onClose} width="max-w-5xl">

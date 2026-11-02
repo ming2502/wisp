@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use sshtool_core::sftp::{RemoteEntry, RemoteFs};
-use sshtool_core::transfer::{Enqueued, TransferId, TransferInfo};
+use sshtool_core::transfer::{Enqueued, TransferId, TransferInfo, TransferState};
 use tauri::ipc::Channel;
 use tauri::{Manager, State};
 
@@ -188,9 +188,24 @@ pub async fn transfers_subscribe(
     Ok(state.transfers.list())
 }
 
-/// Forgets the session's SFTP channels and stops its transfers.
-pub fn forget_session(state: &AppState, session_id: Id) {
+/// Forgets the session's SFTP channels. Its transfers are cancelled only when the user closed the
+/// session; after a lost connection they stay, failed, so that a reconnect can resume them.
+pub fn forget_session(state: &AppState, session_id: Id, cancel_transfers: bool) {
     state.browsers.lock().unwrap().remove(&session_id);
     state.transfer_channels.lock().unwrap().remove(&session_id);
-    state.transfers.cancel_owner(session_id);
+    if cancel_transfers {
+        state.transfers.cancel_owner(session_id);
+    }
+}
+
+/// Hands the unfinished transfers of a lost session to the one that replaced it.
+pub async fn rebind_transfers(state: &AppState, old: Id, new: Id) -> Result<(), String> {
+    let pending = state.transfers.list().iter().any(|t| {
+        t.owner == old && !matches!(t.state, TransferState::Completed | TransferState::Cancelled)
+    });
+    if pending {
+        let fs = open_fs(state, |s| &s.transfer_channels, new).await?;
+        state.transfers.rebind(old, new, fs);
+    }
+    Ok(())
 }

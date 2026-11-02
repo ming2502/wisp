@@ -319,7 +319,7 @@ impl HostStore {
 
 /// Writes to a temporary file next to the target and renames it over, so that a crash midway
 /// leaves either the old or the new file, never half of one.
-fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+pub fn write_atomically(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let directory = path.parent().unwrap_or(Path::new("."));
     std::fs::create_dir_all(directory)?;
     let file_name = path.file_name().unwrap_or_default().to_string_lossy();

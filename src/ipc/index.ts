@@ -308,3 +308,15 @@ export interface SaveRequest {
 export function editorSave(sessionId: number, path: string, request: SaveRequest): Promise<FileVersion> {
   return invoke("editor_save", { sessionId, path, ...request });
 }
+
+export function sshReplace(oldSessionId: number, newSessionId: number): Promise<void> {
+  return invoke("ssh_replace", { oldSessionId, newSessionId });
+}
+
+export function settingsLoad(): Promise<unknown> {
+  return invoke("settings_load");
+}
+
+export function settingsSave(settings: unknown): Promise<void> {
+  return invoke("settings_save", { settings });
+}

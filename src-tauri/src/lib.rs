@@ -7,6 +7,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(state::AppState::default())
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
@@ -38,6 +39,9 @@ pub fn run() {
             commands::hosts::ssh_config_preview,
             commands::hosts::ssh_config_import,
             commands::connection::ssh_disconnect,
+            commands::connection::ssh_replace,
+            commands::settings::settings_load,
+            commands::settings::settings_save,
             commands::connection::answer_host_key,
             commands::connection::answer_prompt,
             commands::terminal::terminal_open,
