@@ -6,5 +6,15 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+log = "0.4"
 # ring avoids the NASM and CMake build requirements of the default aws-lc-rs backend on Windows.
 russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2"] }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "net", "rt", "sync", "time"] }
+zeroize = { version = "1", features = ["serde"] }
+
+[dev-dependencies]
+rand = { version = "0.10", features = ["thread_rng"] }
+tempfile = "3"
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }

@@ -6,6 +6,8 @@
   --color-line: light-dark(#e3e3e8, #2a2c32);
   --color-ink: light-dark(#1c1c1f, #ececf1);
   --color-muted: light-dark(#6e6e76, #9a9aa5);
+  --color-accent: light-dark(#2f6fed, #3b78f0);
+  --color-danger: light-dark(#c62f2f, #f07070);
   --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
