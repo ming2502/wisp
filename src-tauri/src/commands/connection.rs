@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use sshtool_core::connection::{
-    Auth, ConnectEvent, ConnectOptions, HostKeyInfo, Prompt, Session, Stage, known_hosts,
+    ConnectEvent, ConnectOptions, HostKeyInfo, Prompt, Session, Stage, known_hosts,
 };
+use sshtool_core::secrets::Keychain;
 use tauri::State;
 use tauri::ipc::Channel;
 use tokio::sync::mpsc;
@@ -12,15 +13,6 @@ use zeroize::Zeroizing;
 use crate::state::{AppState, Id, PendingPrompt};
 
 const EVENT_QUEUE: usize = 8;
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ConnectRequest {
-    host: String,
-    port: u16,
-    user: String,
-    auth: Auth,
-}
 
 #[derive(Clone, Serialize)]
 #[serde(
@@ -34,21 +26,27 @@ pub enum ConnectMessage {
     Prompt { prompt_id: Id, prompt: Prompt },
 }
 
+/// Connects to a saved host. Saved secrets are read here and never pass through the WebView.
 #[tauri::command]
 pub async fn ssh_connect(
     state: State<'_, AppState>,
-    request: ConnectRequest,
+    host_id: String,
     on_event: Channel<ConnectMessage>,
 ) -> Result<Id, String> {
     let known_hosts = known_hosts::default_path().ok_or("找不到用户主目录")?;
+    let (host, auth) = state.with_store(|store| {
+        store
+            .connect_target(&host_id, &Keychain)
+            .map_err(|e| e.to_string())
+    })?;
     let options = ConnectOptions {
-        host: request.host,
-        port: request.port,
-        user: request.user,
+        host: host.host,
+        port: host.port,
+        user: host.user,
         known_hosts,
     };
     let (events, mut queue) = mpsc::channel(EVENT_QUEUE);
-    let connecting = Session::connect(options, request.auth, events);
+    let connecting = Session::connect(options, auth, events);
     tokio::pin!(connecting);
 
     let mut asked = Vec::new();
@@ -131,34 +129,6 @@ mod tests {
     use super::*;
     use serde_json::json;
     use sshtool_core::connection::PromptField;
-
-    fn request(auth: serde_json::Value) -> ConnectRequest {
-        serde_json::from_value(json!({"host": "h", "port": 22, "user": "u", "auth": auth})).unwrap()
-    }
-
-    #[test]
-    fn accepts_every_auth_shape_the_frontend_sends() {
-        assert!(matches!(
-            request(json!({"kind": "password", "password": "p"})).auth,
-            Auth::Password { .. }
-        ));
-        assert!(matches!(
-            request(json!({"kind": "key", "path": "~/.ssh/id"})).auth,
-            Auth::Key {
-                passphrase: None,
-                ..
-            }
-        ));
-        assert!(matches!(
-            request(json!({"kind": "agent"})).auth,
-            Auth::Agent
-        ));
-        assert!(matches!(
-            request(json!({"kind": "keyboardInteractive"})).auth,
-            Auth::KeyboardInteractive
-        ));
-    }
-
     #[test]
     fn messages_match_the_frontend_types() {
         let to_json = |message| serde_json::to_value(message).unwrap();
@@ -200,6 +170,13 @@ mod tests {
                 "kind": "keyboardInteractive", "name": "n", "instructions": "i",
                 "fields": [{"label": "Code: ", "echo": false}],
             }})
+        );
+        assert_eq!(
+            to_json(ConnectMessage::Prompt {
+                prompt_id: 4,
+                prompt: Prompt::Password { retry: false },
+            }),
+            json!({"kind": "prompt", "promptId": 4, "prompt": {"kind": "password", "retry": false}})
         );
         assert_eq!(
             to_json(ConnectMessage::Prompt {

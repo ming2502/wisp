@@ -20,6 +20,12 @@ pnpm tauri dev
 CI=true pnpm tauri build
 ```
 
+## 数据存放位置
+
+- 主机和分组：应用配置目录下的 `hosts.json`（macOS 为 `~/Library/Application Support/com.sshtool.app/`，Windows 为 `%APPDATA%\com.sshtool.app\`）
+- 密码和私钥口令：macOS 钥匙串或 Windows 凭据管理器，服务名 `com.sshtool.app`
+- 主机密钥：`~/.ssh/known_hosts`，与 OpenSSH 共用
+
 ## 结构
 
 - `crates/core`：SSH、SFTP 等核心逻辑，不依赖 Tauri

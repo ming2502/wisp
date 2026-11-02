@@ -1,8 +1,21 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { ConnectForm } from "../features/hosts/ConnectForm";
+import { ConnectDialog } from "../features/connect/ConnectDialog";
+import { GroupEditor } from "../features/hosts/GroupEditor";
+import { HostEditor } from "../features/hosts/HostEditor";
+import { HostList } from "../features/hosts/HostList";
+import { ImportDialog } from "../features/hosts/ImportDialog";
 import { TerminalView } from "../features/terminal/TerminalView";
-import { sshDisconnect } from "../ipc";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
+import {
+  groupDelete,
+  hostDelete,
+  hostsList,
+  sshDisconnect,
+  type Group,
+  type Host,
+  type HostList as HostData,
+} from "../ipc";
 
 interface Tab {
   sessionId: number;
@@ -10,9 +23,33 @@ interface Tab {
   ended: boolean;
 }
 
+type Dialog =
+  | { kind: "connect"; host: Host }
+  | { kind: "editHost"; host: Host | null }
+  | { kind: "deleteHost"; host: Host }
+  | { kind: "editGroup"; group: Group | null }
+  | { kind: "deleteGroup"; group: Group }
+  | { kind: "import" };
+
 export default function App() {
+  const [data, setData] = useState<HostData>({ hosts: [], groups: [] });
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<Dialog | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeId, setActiveId] = useState<number | null>(null);
+
+  const refresh = useCallback(() => {
+    hostsList()
+      .then((list) => {
+        setData(list);
+        setLoadError(null);
+      })
+      .catch((reason) => setLoadError(String(reason)));
+  }, []);
+
+  useEffect(refresh, [refresh]);
+
+  const close = () => setDialog(null);
 
   function addTab(sessionId: number, title: string) {
     setTabs((current) => [...current, { sessionId, title, ended: false }]);
@@ -35,9 +72,25 @@ export default function App() {
 
   return (
     <div className="flex h-screen">
-      <aside className="w-72 shrink-0 overflow-y-auto border-r border-line bg-panel p-4">
-        <h1 className="mb-4 text-sm font-semibold">新建连接</h1>
-        <ConnectForm onConnected={addTab} />
+      <aside className="w-72 shrink-0 border-r border-line bg-panel">
+        {loadError ? (
+          <p role="alert" className="p-4 text-sm text-danger">
+            {loadError}
+          </p>
+        ) : (
+          <HostList
+            hosts={data.hosts}
+            groups={data.groups}
+            onConnect={(host) => setDialog({ kind: "connect", host })}
+            onNewHost={() => setDialog({ kind: "editHost", host: null })}
+            onEditHost={(host) => setDialog({ kind: "editHost", host })}
+            onDeleteHost={(host) => setDialog({ kind: "deleteHost", host })}
+            onNewGroup={() => setDialog({ kind: "editGroup", group: null })}
+            onEditGroup={(group) => setDialog({ kind: "editGroup", group })}
+            onDeleteGroup={(group) => setDialog({ kind: "deleteGroup", group })}
+            onImport={() => setDialog({ kind: "import" })}
+          />
+        )}
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         {tabs.length > 0 && (
@@ -71,7 +124,7 @@ export default function App() {
         <div className="relative min-h-0 flex-1">
           {tabs.length === 0 && (
             <p className="flex h-full items-center justify-center text-sm text-muted">
-              在左侧填写服务器信息以开始
+              在左侧选择主机以连接
             </p>
           )}
           {tabs.map((tab) => (
@@ -89,6 +142,65 @@ export default function App() {
           ))}
         </div>
       </main>
+
+      {dialog?.kind === "connect" && (
+        <ConnectDialog
+          host={dialog.host}
+          onConnected={(sessionId) => {
+            addTab(sessionId, dialog.host.name);
+            close();
+          }}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === "editHost" && (
+        <HostEditor
+          host={dialog.host}
+          groups={data.groups}
+          onSaved={(host, connect) => {
+            refresh();
+            setDialog(connect ? { kind: "connect", host } : null);
+          }}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === "deleteHost" && (
+        <ConfirmDialog
+          title="删除主机"
+          message={`确定删除“${dialog.host.name}”吗？已保存的密码也会从系统钥匙串中删除。`}
+          confirmLabel="删除"
+          onConfirm={async () => {
+            await hostDelete(dialog.host.id);
+            refresh();
+          }}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === "editGroup" && (
+        <GroupEditor
+          group={dialog.group}
+          onSaved={() => {
+            refresh();
+            close();
+          }}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === "deleteGroup" && (
+        <ConfirmDialog
+          title="删除分组"
+          message={`确定删除分组“${dialog.group.name}”吗？其中的主机会保留，并移到未分组。`}
+          confirmLabel="删除"
+          onConfirm={async () => {
+            await groupDelete(dialog.group.id);
+            refresh();
+          }}
+          onClose={close}
+        />
+      )}
+      {dialog?.kind === "import" && (
+        <ImportDialog hosts={data.hosts} onImported={refresh} onClose={close} />
+      )}
     </div>
   );
 }

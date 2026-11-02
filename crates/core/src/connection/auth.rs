@@ -18,6 +18,7 @@ use super::{ClientHandler, ConnectError, ConnectEvent, Prompt};
 /// Time the user spends answering a prompt is not counted.
 const AUTH_STEP_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_PASSPHRASE_ATTEMPTS: usize = 3;
+const MAX_PASSWORD_ATTEMPTS: usize = 3;
 const MAX_KEYBOARD_INTERACTIVE_ROUNDS: usize = 32;
 
 /// Deliberately has no `Debug` so that secrets cannot reach logs through formatting.
@@ -37,6 +38,9 @@ pub enum Auth {
     },
     Agent,
     KeyboardInteractive,
+    /// Asks for the password once the host key is settled, as ssh does, with a few retries.
+    #[serde(skip)]
+    AskPassword,
 }
 
 pub(super) async fn authenticate(
@@ -54,6 +58,7 @@ pub(super) async fn authenticate(
             authenticate_key(handle, user, key).await?
         }
         Auth::Agent => authenticate_agent(handle, user).await?,
+        Auth::AskPassword => ask_password(handle, user, events).await?,
         Auth::KeyboardInteractive => return keyboard_interactive(handle, user, events).await,
     };
     match result {
@@ -75,6 +80,32 @@ async fn step<F: Future>(future: F) -> Result<F::Output, ConnectError> {
     tokio::time::timeout(AUTH_STEP_TIMEOUT, future)
         .await
         .map_err(|_| ConnectError::Timeout)
+}
+
+async fn ask_password(
+    handle: &mut Handle<ClientHandler>,
+    user: &str,
+    events: &mpsc::Sender<ConnectEvent>,
+) -> Result<AuthResult, ConnectError> {
+    for attempt in 0..MAX_PASSWORD_ATTEMPTS {
+        let answer = ask(events, |reply| ConnectEvent::Prompt {
+            prompt: Prompt::Password { retry: attempt > 0 },
+            reply,
+        })
+        .await;
+        let mut values = answer.flatten().ok_or(ConnectError::Cancelled)?;
+        let password = values.pop().ok_or(ConnectError::Cancelled)?;
+        let result = step(handle.authenticate_password(user, password.as_str())).await??;
+        let wrong = matches!(
+            &result,
+            AuthResult::Failure { partial_success: false, remaining_methods }
+                if remaining_methods.contains(&MethodKind::Password)
+        );
+        if !wrong || attempt + 1 == MAX_PASSWORD_ATTEMPTS {
+            return Ok(result);
+        }
+    }
+    unreachable!("the last attempt always returns")
 }
 
 async fn ask<T>(

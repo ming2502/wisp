@@ -64,6 +64,37 @@ async fn wrong_password_fails() {
 }
 
 #[tokio::test]
+async fn asked_password_is_requested_after_host_key_and_retried() {
+    let f = Fixture::new().await;
+    let answers = Answers {
+        prompt_answers: vec![Some(vec!["wrong".into()]), Some(vec![PASSWORD.into()])],
+        ..Default::default()
+    };
+    let (result, transcript) = connect_scripted(f.options(), Auth::AskPassword, answers).await;
+    assert!(result.is_ok(), "{:?}", result.err());
+    assert_eq!(transcript.host_keys.len(), 1);
+    assert_eq!(
+        transcript.prompts,
+        [
+            Prompt::Password { retry: false },
+            Prompt::Password { retry: true }
+        ]
+    );
+}
+
+#[tokio::test]
+async fn asked_password_gives_up_after_three_attempts() {
+    let f = Fixture::new().await;
+    let answers = Answers {
+        prompt_answers: vec![Some(vec!["wrong".into()]); 5],
+        ..Default::default()
+    };
+    let (result, transcript) = connect_scripted(f.options(), Auth::AskPassword, answers).await;
+    assert!(matches!(result, Err(ConnectError::AuthFailed)));
+    assert_eq!(transcript.prompts.len(), 3);
+}
+
+#[tokio::test]
 async fn plain_private_key_login() {
     let f = Fixture::new().await;
     let path = write_key(f.dir.path(), "id", &f.client_key);

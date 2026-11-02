@@ -82,6 +82,9 @@ pub struct PromptField {
     rename_all_fields = "camelCase"
 )]
 pub enum Prompt {
+    Password {
+        retry: bool,
+    },
     Passphrase {
         path: String,
         retry: bool,
@@ -127,7 +130,7 @@ pub struct ConnectOptions {
 impl ConnectOptions {
     /// The host is later written into known_hosts, where whitespace or a comma would change the
     /// meaning of the line.
-    fn validate(&self) -> Result<(), ConnectError> {
+    pub fn validate(&self) -> Result<(), ConnectError> {
         let bad_host = |c: char| c.is_whitespace() || c.is_control() || c == ',';
         if self.host.is_empty() || self.host.contains(bad_host) {
             return Err(ConnectError::InvalidTarget("主机地址"));
