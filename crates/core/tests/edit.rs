@@ -6,7 +6,7 @@ mod common;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 
 use common::sshd::RealServer;
-use sshtool_core::sftp::{EditError, LineEnding};
+use wisp_core::sftp::{EditError, LineEnding};
 
 #[tokio::test]
 async fn edits_keep_format_permissions_and_links() {

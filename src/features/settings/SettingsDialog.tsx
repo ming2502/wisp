@@ -137,7 +137,7 @@ export function SettingsDialog({ onClose, updater }: { onClose: () => void; upda
           <h3 className="text-xs font-medium text-muted">关于</h3>
           <div className="flex items-center justify-between gap-3 text-sm">
             <span>
-              sshtool {version}
+              wisp {version}
               <span className={`ml-2 text-xs ${updater.status.kind === "error" ? "text-danger" : "text-muted"}`}>
                 {updateText(updater)}
               </span>

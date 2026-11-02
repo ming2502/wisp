@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use serde::Serialize;
-use sshtool_core::secrets::Keychain;
-use sshtool_core::store::ssh_config::{self, Environment, ImportCandidate, ImportPreview};
-use sshtool_core::store::{Group, Host, HostDraft, SecretChange};
 use tauri::State;
+use wisp_core::secrets::Keychain;
+use wisp_core::store::ssh_config::{self, Environment, ImportCandidate, ImportPreview};
+use wisp_core::store::{Group, Host, HostDraft, SecretChange};
 
 use crate::state::AppState;
 
@@ -116,7 +116,7 @@ pub fn ssh_config_import(
 #[cfg(test)]
 mod tests {
     use serde_json::json;
-    use sshtool_core::store::{HostAuth, HostDraft, SecretChange};
+    use wisp_core::store::{HostAuth, HostDraft, SecretChange};
 
     #[test]
     fn accepts_the_drafts_and_secret_changes_the_frontend_sends() {

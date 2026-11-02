@@ -10,12 +10,12 @@ use std::time::Duration;
 use russh::keys::{Algorithm, PrivateKey, PublicKey};
 use russh::server::{self, Auth as ServerAuth, Msg, Session as ServerSession};
 use russh::{Channel, ChannelId, MethodKind, MethodSet, Pty};
-use sshtool_core::connection::{
-    Auth, ConnectError, ConnectEvent, ConnectOptions, HostKeyInfo, Prompt, Session, Stage,
-};
-use sshtool_core::terminal::{Terminal, TerminalEvent, TerminalSize};
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
+use wisp_core::connection::{
+    Auth, ConnectError, ConnectEvent, ConnectOptions, HostKeyInfo, Prompt, Session, Stage,
+};
+use wisp_core::terminal::{Terminal, TerminalEvent, TerminalSize};
 use zeroize::Zeroizing;
 
 pub const PASSWORD: &str = "correct horse";

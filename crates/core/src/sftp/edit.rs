@@ -158,7 +158,7 @@ fn temporary_name(path: &str, purpose: &str) -> String {
     let unique = uuid::Uuid::new_v4().simple().to_string();
     join(
         &parent(path),
-        &format!(".{}.sshtool-{}.{purpose}", file_name(path), &unique[..8]),
+        &format!(".{}.wisp-{}.{purpose}", file_name(path), &unique[..8]),
     )
 }
 

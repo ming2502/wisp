@@ -21,7 +21,7 @@ pub enum StoreError {
     },
     #[error("配置文件 {path} 已损坏，为避免覆盖已暂停保存：{reason}")]
     Corrupt { path: String, reason: String },
-    #[error("配置文件 {path} 来自更新版本的 sshtool，请升级后再使用")]
+    #[error("配置文件 {path} 来自更新版本的 wisp，请升级后再使用")]
     TooNew { path: String },
     #[error("找不到该主机")]
     NotFound,

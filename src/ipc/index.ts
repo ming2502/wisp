@@ -321,7 +321,7 @@ export function settingsSave(settings: unknown): Promise<void> {
   return invoke("settings_save", { settings });
 }
 
-/** Lets the backend report startup time when asked to through `SSHTOOL_TIMING`. */
+/** Lets the backend report startup time when asked to through `WISP_TIMING`. */
 export function appReady(): Promise<void> {
   return invoke("app_ready");
 }

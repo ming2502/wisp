@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
-use sshtool_core::sftp::{RemoteEntry, RemoteFs};
-use sshtool_core::transfer::{Enqueued, TransferId, TransferInfo, TransferState};
 use tauri::ipc::Channel;
 use tauri::{Manager, State};
+use wisp_core::sftp::{RemoteEntry, RemoteFs};
+use wisp_core::transfer::{Enqueued, TransferId, TransferInfo, TransferState};
 
 use crate::state::{AppState, Id};
 

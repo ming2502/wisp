@@ -11,8 +11,8 @@ use std::time::Duration;
 
 use common::sshd::RealServer;
 use rand::Rng;
-use sshtool_core::sftp::{EntryKind, SftpError};
-use sshtool_core::transfer::{Direction, TransferInfo, TransferQueue, TransferState};
+use wisp_core::sftp::{EntryKind, SftpError};
+use wisp_core::transfer::{Direction, TransferInfo, TransferQueue, TransferState};
 
 fn random_file(path: &Path, bytes: usize) {
     let mut data = vec![0; bytes];
@@ -173,7 +173,7 @@ async fn upload_and_download_round_trip() {
     // The second download must not replace the first.
     assert!(same_contents(&source, &downloads.join("data.bin")));
     assert!(same_contents(&source, &downloads.join("data (1).bin")));
-    assert!(!downloads.join("data.bin.sshtool-part").exists());
+    assert!(!downloads.join("data.bin.wisp-part").exists());
 }
 
 async fn pause_midway(queue: &TransferQueue) -> TransferInfo {
@@ -224,7 +224,7 @@ async fn paused_transfers_resume_without_starting_over() {
         .await
         .unwrap();
     let paused = pause_midway(&queue).await;
-    let partial = std::fs::metadata(downloads.join("big.bin.sshtool-part"))
+    let partial = std::fs::metadata(downloads.join("big.bin.wisp-part"))
         .unwrap()
         .len();
     assert_eq!(partial, paused.transferred);
@@ -317,7 +317,7 @@ async fn cancelling_removes_partial_files() {
         list[0].state == TransferState::Cancelled
     })
     .await;
-    assert!(!downloads.join("big.bin.sshtool-part").exists());
+    assert!(!downloads.join("big.bin.wisp-part").exists());
     assert!(!downloads.join("big.bin").exists());
 }
 
@@ -438,7 +438,7 @@ fn same_contents_streaming(a: &Path, b: &Path) -> bool {
 }
 
 /// The M3 acceptance check. Slow, so it only runs on request:
-/// `cargo test --release -p sshtool-core --test sftp -- --ignored --nocapture`
+/// `cargo test --release -p wisp-core --test sftp -- --ignored --nocapture`
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn one_gigabyte_round_trip() {
@@ -497,11 +497,11 @@ async fn one_gigabyte_round_trip() {
 }
 
 /// Measures how much a running upload delays the terminal on the same connection. Only runs on
-/// request: `cargo test --release -p sshtool-core --test sftp -- --ignored --nocapture`
+/// request: `cargo test --release -p wisp-core --test sftp -- --ignored --nocapture`
 #[tokio::test(flavor = "multi_thread")]
 #[ignore]
 async fn terminal_latency_during_upload() {
-    use sshtool_core::terminal::TerminalSize;
+    use wisp_core::terminal::TerminalSize;
     let Some(server) = RealServer::start().await else {
         return;
     };

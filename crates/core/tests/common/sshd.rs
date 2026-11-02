@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
-use sshtool_core::connection::{Auth, ConnectOptions, Session};
+use wisp_core::connection::{Auth, ConnectOptions, Session};
 
 use super::*;
 

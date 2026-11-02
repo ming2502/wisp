@@ -12,17 +12,17 @@ pub static STARTED: OnceLock<Instant> = OnceLock::new();
 
 #[tauri::command]
 pub fn core_version() -> &'static str {
-    sshtool_core::version()
+    wisp_core::version()
 }
 
-/// Reports how long startup took once the interface is up, when `SSHTOOL_TIMING` is set.
+/// Reports how long startup took once the interface is up, when `WISP_TIMING` is set.
 #[tauri::command]
 pub fn app_ready() {
     static REPORTED: OnceLock<()> = OnceLock::new();
-    if std::env::var_os("SSHTOOL_TIMING").is_some()
+    if std::env::var_os("WISP_TIMING").is_some()
         && REPORTED.set(()).is_ok()
         && let Some(started) = STARTED.get()
     {
-        println!("sshtool ready after {:?}", started.elapsed());
+        println!("wisp ready after {:?}", started.elapsed());
     }
 }

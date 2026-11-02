@@ -1,13 +1,13 @@
 use std::sync::Arc;
 
 use serde::Serialize;
-use sshtool_core::connection::{
-    ConnectEvent, ConnectOptions, HostKeyInfo, Prompt, Session, Stage, known_hosts,
-};
-use sshtool_core::secrets::Keychain;
 use tauri::State;
 use tauri::ipc::Channel;
 use tokio::sync::mpsc;
+use wisp_core::connection::{
+    ConnectEvent, ConnectOptions, HostKeyInfo, Prompt, Session, Stage, known_hosts,
+};
+use wisp_core::secrets::Keychain;
 use zeroize::Zeroizing;
 
 use crate::state::{AppState, Id, PendingPrompt};
@@ -145,7 +145,7 @@ pub async fn ssh_replace(
 mod tests {
     use super::*;
     use serde_json::json;
-    use sshtool_core::connection::PromptField;
+    use wisp_core::connection::PromptField;
     #[test]
     fn messages_match_the_frontend_types() {
         let to_json = |message| serde_json::to_value(message).unwrap();

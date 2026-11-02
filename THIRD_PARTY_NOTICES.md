@@ -1,6 +1,6 @@
 # 第三方声明
 
-sshtool 以 Apache-2.0 许可证发布。安装包中还包含以下需要单独声明的第三方作品。依赖库的许可证见各自的软件包（`Cargo.lock` 与 `pnpm-lock.yaml` 列出了全部依赖）。
+wisp 以 Apache-2.0 许可证发布。安装包中还包含以下需要单独声明的第三方作品。依赖库的许可证见各自的软件包（`Cargo.lock` 与 `pnpm-lock.yaml` 列出了全部依赖）。
 
 ## JetBrains Mono
 

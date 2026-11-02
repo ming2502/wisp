@@ -1,6 +1,6 @@
 [package]
-name = "sshtool-core"
-description = "SSH and SFTP core for sshtool, independent of Tauri"
+name = "wisp-core"
+description = "SSH and SFTP core for wisp, independent of Tauri"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

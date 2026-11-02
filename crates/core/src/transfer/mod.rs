@@ -21,7 +21,7 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 /// Writes are pipelined, so after a failure the server may hold bytes beyond a gap. Resuming a
 /// little before the recorded position rewrites any such gap.
 const UPLOAD_RESUME_MARGIN: u64 = 1024 * 1024;
-const PARTIAL_SUFFIX: &str = ".sshtool-part";
+const PARTIAL_SUFFIX: &str = ".wisp-part";
 
 pub type TransferId = u64;
 /// Lets the caller group transfers, for example by the session they belong to.
@@ -633,7 +633,7 @@ mod tests {
     fn partial_file_sits_next_to_the_target() {
         assert_eq!(
             partial_path(Path::new("/tmp/dir/a.tar.gz")),
-            Path::new("/tmp/dir/a.tar.gz.sshtool-part")
+            Path::new("/tmp/dir/a.tar.gz.wisp-part")
         );
     }
 

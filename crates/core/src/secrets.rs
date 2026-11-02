@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use zeroize::Zeroizing;
 
-const SERVICE: &str = "com.sshtool.app";
+const SERVICE: &str = "io.github.ming2502.wisp";
 
 #[derive(Debug, thiserror::Error)]
 #[error("系统钥匙串不可用：{0}")]

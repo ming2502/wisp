@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use common::sshd::*;
 use common::*;
-use sshtool_core::connection::{Auth, ConnectOptions};
-use sshtool_core::terminal::{TerminalEnd, TerminalEvent, TerminalSize};
+use wisp_core::connection::{Auth, ConnectOptions};
+use wisp_core::terminal::{TerminalEnd, TerminalEvent, TerminalSize};
 
 // A single test because SSH_AUTH_SOCK is process-wide state.
 #[test]

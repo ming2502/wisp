@@ -3,7 +3,7 @@ mod common;
 use std::time::Duration;
 
 use common::*;
-use sshtool_core::terminal::{TerminalEnd, TerminalError, TerminalEvent, TerminalSize};
+use wisp_core::terminal::{TerminalEnd, TerminalError, TerminalEvent, TerminalSize};
 
 /// Must stay above the core's high watermark plus one batch, and well below the flood size.
 const PAUSED_LIMIT: usize = 1024 * 1024;
@@ -11,7 +11,7 @@ const PAUSED_LIMIT: usize = 1024 * 1024;
 struct Fixture {
     _dir: tempfile::TempDir,
     server: TestServer,
-    session: sshtool_core::connection::Session,
+    session: wisp_core::connection::Session,
 }
 
 async fn fixture_with(refuse_shell: bool) -> Fixture {

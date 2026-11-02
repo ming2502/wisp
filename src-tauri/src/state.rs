@@ -4,13 +4,13 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use sshtool_core::connection::Session;
-use sshtool_core::sftp::RemoteFs;
-use sshtool_core::store::HostStore;
-use sshtool_core::terminal::Terminal;
-use sshtool_core::transfer::{TransferInfo, TransferQueue};
 use tauri::ipc::Channel;
 use tokio::sync::oneshot;
+use wisp_core::connection::Session;
+use wisp_core::sftp::RemoteFs;
+use wisp_core::store::HostStore;
+use wisp_core::terminal::Terminal;
+use wisp_core::transfer::{TransferInfo, TransferQueue};
 use zeroize::Zeroizing;
 
 pub type Id = u64;

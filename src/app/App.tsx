@@ -79,7 +79,7 @@ function Welcome({ onNewHost, onImport, onPalette }: { onNewHost: () => void; on
     <div className="flex h-full items-center justify-center p-8">
       <div className="max-w-sm text-center">
         <SquareTerminal size={36} className="mx-auto text-muted" strokeWidth={1.5} />
-        <h2 className="mt-4 text-lg font-semibold">sshtool</h2>
+        <h2 className="mt-4 text-lg font-semibold">wisp</h2>
         <p className="mt-1 text-sm text-muted">在左侧选择主机连接，或者：</p>
         <div className="mt-5 flex justify-center gap-2">
           <button type="button" className={primaryButton} onClick={onNewHost}>
@@ -494,7 +494,7 @@ export default function App() {
           {updater.status.kind === "available" ? (
             <>
               <p className="text-sm">
-                sshtool {updater.status.update.version} 已发布。安装后应用会自动重启，所有连接会断开。
+                wisp {updater.status.update.version} 已发布。安装后应用会自动重启，所有连接会断开。
               </p>
               {updater.status.update.body && (
                 <pre className="mt-3 max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md bg-panel p-3 text-xs">
@@ -566,7 +566,7 @@ export default function App() {
       )}
       {dialog?.kind === "quit" && (
         <ConfirmDialog
-          title="退出 sshtool"
+          title="退出 wisp"
           message="有文件尚未保存，退出后这些修改会丢失。"
           confirmLabel="不保存并退出"
           onConfirm={() => getCurrentWindow().destroy()}

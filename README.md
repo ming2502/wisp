@@ -1,4 +1,4 @@
-# sshtool
+# wisp
 
 轻量的 SSH/SFTP 桌面客户端，支持 macOS 和 Windows。基于 Tauri 2、Rust 和 React，以 Apache-2.0 许可证开源。
 
@@ -36,9 +36,9 @@ macOS 用 ⌘，Windows 用 Ctrl+Shift（单独的 Ctrl 组合键留给终端里
 
 ## 数据存放位置
 
-- 主机和分组：应用配置目录下的 `hosts.json`（macOS 为 `~/Library/Application Support/com.sshtool.app/`，Windows 为 `%APPDATA%\com.sshtool.app\`）
+- 主机和分组：应用配置目录下的 `hosts.json`（macOS 为 `~/Library/Application Support/io.github.ming2502.wisp/`，Windows 为 `%APPDATA%\io.github.ming2502.wisp\`）
 - 设置：应用配置目录下的 `settings.json`
-- 密码和私钥口令：macOS 钥匙串或 Windows 凭据管理器，服务名 `com.sshtool.app`
+- 密码和私钥口令：macOS 钥匙串或 Windows 凭据管理器，服务名 `io.github.ming2502.wisp`
 - 主机密钥：`~/.ssh/known_hosts`，与 OpenSSH 共用
 
 ## 开发

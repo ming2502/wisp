@@ -1,6 +1,6 @@
 use serde::Serialize;
-use sshtool_core::sftp::{EditError, TextFile, TextFormat, Version};
 use tauri::State;
+use wisp_core::sftp::{EditError, TextFile, TextFormat, Version};
 
 use super::files::browser;
 use crate::state::{AppState, Id};

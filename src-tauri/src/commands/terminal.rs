@@ -1,6 +1,6 @@
-use sshtool_core::terminal::{TerminalEvent, TerminalSize};
 use tauri::State;
 use tauri::ipc::{Channel, InvokeResponseBody};
+use wisp_core::terminal::{TerminalEvent, TerminalSize};
 
 use crate::state::{AppState, Id};
 
@@ -81,7 +81,7 @@ pub fn terminal_close(state: State<'_, AppState>, terminal_id: Id) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sshtool_core::terminal::TerminalEnd;
+    use wisp_core::terminal::TerminalEnd;
 
     #[test]
     fn output_frame_keeps_raw_bytes_after_tag() {

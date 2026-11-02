@@ -1,7 +1,7 @@
 mod common;
 
 use common::*;
-use sshtool_core::connection::{Auth, ConnectError, Prompt, Stage, known_hosts};
+use wisp_core::connection::{Auth, ConnectError, Prompt, Stage, known_hosts};
 use zeroize::Zeroizing;
 
 fn server_options(client_key: &russh::keys::PrivateKey) -> ServerOptions {
@@ -34,7 +34,7 @@ impl Fixture {
         self.dir.path().join("known_hosts")
     }
 
-    fn options(&self) -> sshtool_core::connection::ConnectOptions {
+    fn options(&self) -> wisp_core::connection::ConnectOptions {
         options(self.server.port, &self.known_hosts())
     }
 }

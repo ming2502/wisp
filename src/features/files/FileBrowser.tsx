@@ -36,7 +36,7 @@ import { emptySelection, moveFocus, prune, select, selectAll, type Selection } f
 
 const ROW_HEIGHT = 30;
 const COLUMNS = "grid grid-cols-[minmax(0,1fr)_6rem_9.5rem_6.5rem] gap-3";
-const DOWNLOAD_DIR_KEY = "sshtool.downloadDir";
+const DOWNLOAD_DIR_KEY = "wisp.downloadDir";
 
 type Dialog =
   | { kind: "mkdir" }
