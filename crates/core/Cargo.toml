@@ -1,0 +1,10 @@
+[package]
+name = "sshtool-core"
+description = "SSH and SFTP core for sshtool, independent of Tauri"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# ring avoids the NASM and CMake build requirements of the default aws-lc-rs backend on Windows.
+russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2"] }
