@@ -20,6 +20,7 @@ async fn fixture_with(refuse_shell: bool) -> Fixture {
         client_key: new_key().public_key().clone(),
         second_factor: false,
         refuse_shell,
+        sha1_mac_only: false,
     })
     .await;
     let session = connected(&server, &dir.path().join("known_hosts")).await;

@@ -9,6 +9,7 @@ fn server_options(client_key: &russh::keys::PrivateKey) -> ServerOptions {
         client_key: client_key.public_key().clone(),
         second_factor: false,
         refuse_shell: false,
+        sha1_mac_only: false,
     }
 }
 
@@ -216,6 +217,26 @@ async fn password_then_second_factor() {
     .await;
     assert!(result.is_ok(), "{:?}", result.err());
     assert_eq!(transcript.prompts.len(), 1);
+}
+
+#[tokio::test]
+async fn connects_to_server_that_only_accepts_hmac_sha1() {
+    let client_key = new_key();
+    let server = start_server(ServerOptions {
+        sha1_mac_only: true,
+        ..server_options(&client_key)
+    })
+    .await;
+    let dir = tempfile::tempdir().unwrap();
+    let (result, _) = connect_scripted(
+        options(server.port, &dir.path().join("known_hosts")),
+        password(PASSWORD),
+        Answers::default(),
+    )
+    .await;
+    let session = result.unwrap_or_else(|error| panic!("{error}"));
+    let mut term = open(&session, SIZE).await;
+    term.read_until(b"welcome").await;
 }
 
 #[tokio::test]

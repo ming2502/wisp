@@ -39,6 +39,8 @@ pub struct ServerOptions {
     /// Password login succeeds only partially, then requires keyboard-interactive.
     pub second_factor: bool,
     pub refuse_shell: bool,
+    /// Accepts only HMAC-SHA1, like some servers in the wild.
+    pub sha1_mac_only: bool,
 }
 
 pub struct TestServer {
@@ -66,6 +68,14 @@ pub async fn start_server_with_key(options: ServerOptions, host_key: PrivateKey)
         keys: vec![host_key],
         auth_rejection_time: Duration::ZERO,
         auth_rejection_time_initial: Some(Duration::ZERO),
+        preferred: if options.sha1_mac_only {
+            russh::Preferred {
+                mac: std::borrow::Cow::Borrowed(&[russh::mac::HMAC_SHA1]),
+                ..Default::default()
+            }
+        } else {
+            Default::default()
+        },
         ..Default::default()
     });
     let observed = Observed::default();

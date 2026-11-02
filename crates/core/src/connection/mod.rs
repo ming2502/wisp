@@ -1,13 +1,14 @@
 mod auth;
 pub mod known_hosts;
 
+use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use russh::Disconnect;
 use russh::client::{self, Handle, Handler};
 use russh::keys::{self, HashAlg, PublicKey, PublicKeyOrCertificate};
+use russh::{Disconnect, Preferred, mac};
 use serde::Serialize;
 use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -280,7 +281,19 @@ impl Session {
 fn client_config() -> client::Config {
     client::Config {
         keepalive_interval: Some(KEEPALIVE_INTERVAL),
+        preferred: preferred_algorithms(),
         ..Default::default()
+    }
+}
+
+/// russh leaves out HMAC-SHA1, but OpenSSH clients still offer it and some servers accept nothing
+/// else. It stays last, so it is only chosen when the server offers no SHA-2 MAC.
+fn preferred_algorithms() -> Preferred {
+    let mut macs = Preferred::DEFAULT.mac.into_owned();
+    macs.extend([mac::HMAC_SHA1_ETM, mac::HMAC_SHA1]);
+    Preferred {
+        mac: Cow::Owned(macs),
+        ..Preferred::DEFAULT
     }
 }
 
@@ -300,6 +313,14 @@ mod tests {
     #[test]
     fn client_config_enables_keepalive() {
         assert_eq!(client_config().keepalive_interval, Some(KEEPALIVE_INTERVAL));
+    }
+
+    #[test]
+    fn prefers_sha2_macs_and_falls_back_to_sha1() {
+        let macs = preferred_algorithms().mac;
+        let position = |name| macs.iter().position(|mac| *mac == name).unwrap();
+        assert!(position(mac::HMAC_SHA256) < position(mac::HMAC_SHA1_ETM));
+        assert_eq!(macs[macs.len() - 2..], [mac::HMAC_SHA1_ETM, mac::HMAC_SHA1]);
     }
 
     #[test]
