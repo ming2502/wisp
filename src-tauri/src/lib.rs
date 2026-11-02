@@ -5,9 +5,12 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    commands::STARTED.get_or_init(std::time::Instant::now);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(state::AppState::default())
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
@@ -16,6 +19,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::core_version,
+            commands::app_ready,
             commands::connection::ssh_connect,
             commands::editor::editor_open,
             commands::editor::editor_save,

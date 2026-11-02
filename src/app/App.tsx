@@ -22,14 +22,18 @@ import { TransfersPanel } from "../features/transfers/TransfersPanel";
 import { createSpeedTracker } from "../features/transfers/speed";
 import { CommandPalette, type PaletteAction } from "../features/palette/CommandPalette";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
+import { useSettings } from "../features/settings/SettingsContext";
+import { useUpdater } from "../features/updates/useUpdater";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { primaryButton, secondaryButton } from "../ui/controls";
+import { Modal } from "../ui/Modal";
 import { isMac, isShortcut, shortcutLabel } from "../lib/platform";
 import {
   groupDelete,
   hostDelete,
   hostsList,
   sshDisconnect,
+  appReady,
   sshReplace,
   transfersSubscribe,
   type Group,
@@ -67,6 +71,7 @@ type Dialog =
   | { kind: "palette" }
   | { kind: "settings" }
   | { kind: "closeTabs"; key: string; message: string }
+  | { kind: "update" }
   | { kind: "quit" };
 
 function Welcome({ onNewHost, onImport, onPalette }: { onNewHost: () => void; onImport: () => void; onPalette: () => void }) {
@@ -102,6 +107,12 @@ export default function App() {
   const [speeds, setSpeeds] = useState<Map<number, number>>(new Map());
   const [notice, setNotice] = useState<string | null>(null);
   const trackSpeed = useRef(createSpeedTracker());
+  const { settings } = useSettings();
+  const updater = useUpdater(settings.checkUpdates);
+
+  useEffect(() => {
+    appReady().catch(() => {});
+  }, []);
 
   useEffect(() => {
     const update = (list: TransferInfo[]) => {
@@ -307,6 +318,15 @@ export default function App() {
             />
           )}
         </div>
+        {updater.status.kind === "available" && (
+          <button
+            type="button"
+            className="mx-2 mb-1.5 rounded-md bg-accent/15 px-2.5 py-1.5 text-left text-xs text-accent hover:bg-accent/25"
+            onClick={() => setDialog({ kind: "update" })}
+          >
+            新版本 {updater.status.update.version} 可用，点击查看
+          </button>
+        )}
         <div className="flex shrink-0 items-center justify-between border-t border-line px-2 py-1.5">
           <button
             type="button"
@@ -468,7 +488,34 @@ export default function App() {
           onClose={close}
         />
       )}
-      {dialog?.kind === "settings" && <SettingsDialog onClose={close} />}
+      {dialog?.kind === "settings" && <SettingsDialog onClose={close} updater={updater} />}
+      {dialog?.kind === "update" && (updater.status.kind === "available" || updater.status.kind === "installing") && (
+        <Modal title="安装更新" open onClose={close} modal={updater.status.kind === "installing"}>
+          {updater.status.kind === "available" ? (
+            <>
+              <p className="text-sm">
+                sshtool {updater.status.update.version} 已发布。安装后应用会自动重启，所有连接会断开。
+              </p>
+              {updater.status.update.body && (
+                <pre className="mt-3 max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md bg-panel p-3 text-xs">
+                  {updater.status.update.body}
+                </pre>
+              )}
+              {hasUnsaved && <p className="mt-3 text-sm text-danger">有文件尚未保存，重启后这些修改会丢失。</p>}
+              <div className="mt-5 flex justify-end gap-2">
+                <button type="button" className={secondaryButton} onClick={close}>
+                  稍后
+                </button>
+                <button type="button" className={primaryButton} onClick={() => void updater.install()}>
+                  {hasUnsaved ? "不保存，安装并重启" : "安装并重启"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted">正在下载并安装，完成后会自动重启…</p>
+          )}
+        </Modal>
+      )}
       {dialog?.kind === "editHost" && (
         <HostEditor
           host={dialog.host}

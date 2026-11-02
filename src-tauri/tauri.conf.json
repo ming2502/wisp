@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "sshtool",
-  "version": "0.1.0",
   "identifier": "com.sshtool.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -27,12 +26,32 @@
   "bundle": {
     "active": true,
     "targets": ["app", "dmg", "nsis"],
+    "publisher": "sshtool contributors",
+    "copyright": "Copyright © 2026 sshtool contributors. Licensed under Apache-2.0.",
+    "category": "DeveloperTool",
+    "shortDescription": "轻量的 SSH/SFTP 客户端",
+    "longDescription": "轻量的 SSH/SFTP 桌面客户端：终端、文件管理、断点续传和远程文件编辑。",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["SimpChinese", "English"]
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU2NjlDOUQxQjMwRDQwNjAKUldSZ1FBMnowY2xwNWsxc2lhS1lBcDRRbGZkb1dGdFl4RGJIcGF4TUFTeDdUaC9XUGpyQ1M1TzYK",
+      "endpoints": ["https://github.com/ming2502/wisp/releases/latest/download/latest.json"]
+    }
   }
 }

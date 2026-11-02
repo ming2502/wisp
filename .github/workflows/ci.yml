@@ -28,6 +28,7 @@ jobs:
       - run: pnpm test
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      # Includes tests against a real OpenSSH server where the runner has one.
       - run: cargo test --workspace
       - run: pnpm tauri build
       - uses: actions/upload-artifact@v4

@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { Modal } from "../../ui/Modal";
 import { Field } from "../../ui/Field";
 import { inputClass, secondaryButton } from "../../ui/controls";
 import { SCHEME_LABELS } from "../terminal/schemes";
 import { FONT_SIZE_RANGE, SCROLLBACK_RANGE, type Appearance, type CursorStyle, type TerminalScheme } from "./settings";
 import { useSettings } from "./SettingsContext";
+import type { Updater } from "../updates/useUpdater";
+import { formatBytes } from "../../lib/format";
 
 const APPEARANCES: [Appearance, string][] = [
   ["system", "跟随系统"],
@@ -17,8 +21,33 @@ const CURSORS: [CursorStyle, string][] = [
   ["underline", "下划线"],
 ];
 
-export function SettingsDialog({ onClose }: { onClose: () => void }) {
+function updateText(updater: Updater) {
+  const { status } = updater;
+  switch (status.kind) {
+    case "idle":
+      return "";
+    case "checking":
+      return "正在检查…";
+    case "upToDate":
+      return "已是最新版本";
+    case "available":
+      return `有新版本 ${status.update.version}`;
+    case "installing":
+      return `正在下载 ${formatBytes(status.downloaded)}${status.total ? ` / ${formatBytes(status.total)}` : ""}`;
+    case "error":
+      return status.message;
+  }
+}
+
+export function SettingsDialog({ onClose, updater }: { onClose: () => void; updater: Updater }) {
   const { settings, update } = useSettings();
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => {});
+  }, []);
   const terminal = (change: Partial<typeof settings.terminal>) =>
     update((current) => ({ ...current, terminal: { ...current.terminal, ...change } }));
 
@@ -101,6 +130,34 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onChange={(event) => terminal({ cursorBlink: event.target.checked })}
             />
             光标闪烁
+          </label>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-xs font-medium text-muted">关于</h3>
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span>
+              sshtool {version}
+              <span className={`ml-2 text-xs ${updater.status.kind === "error" ? "text-danger" : "text-muted"}`}>
+                {updateText(updater)}
+              </span>
+            </span>
+            <button
+              type="button"
+              className={`${secondaryButton} shrink-0 py-1 text-xs`}
+              disabled={updater.status.kind === "checking" || updater.status.kind === "installing"}
+              onClick={updater.checkNow}
+            >
+              检查更新
+            </button>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={settings.checkUpdates}
+              onChange={(event) => update((current) => ({ ...current, checkUpdates: event.target.checked }))}
+            />
+            启动时自动检查更新
           </label>
         </section>
       </div>

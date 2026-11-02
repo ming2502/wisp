@@ -5,7 +5,24 @@ pub mod hosts;
 pub mod settings;
 pub mod terminal;
 
+use std::sync::OnceLock;
+use std::time::Instant;
+
+pub static STARTED: OnceLock<Instant> = OnceLock::new();
+
 #[tauri::command]
 pub fn core_version() -> &'static str {
     sshtool_core::version()
+}
+
+/// Reports how long startup took once the interface is up, when `SSHTOOL_TIMING` is set.
+#[tauri::command]
+pub fn app_ready() {
+    static REPORTED: OnceLock<()> = OnceLock::new();
+    if std::env::var_os("SSHTOOL_TIMING").is_some()
+        && REPORTED.set(()).is_ok()
+        && let Some(started) = STARTED.get()
+    {
+        println!("sshtool ready after {:?}", started.elapsed());
+    }
 }

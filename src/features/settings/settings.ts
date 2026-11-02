@@ -4,6 +4,7 @@ export type CursorStyle = "block" | "bar" | "underline";
 
 export interface Settings {
   appearance: Appearance;
+  checkUpdates: boolean;
   terminal: {
     fontSize: number;
     scheme: TerminalScheme;
@@ -15,6 +16,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   appearance: "system",
+  checkUpdates: true,
   terminal: { fontSize: 13, scheme: "auto", cursorStyle: "block", cursorBlink: true, scrollback: 10000 },
 };
 
@@ -41,6 +43,7 @@ export function normalizeSettings(raw: unknown): Settings {
   const defaults = DEFAULT_SETTINGS.terminal;
   return {
     appearance: pick(value.appearance, ["system", "light", "dark"], DEFAULT_SETTINGS.appearance),
+    checkUpdates: typeof value.checkUpdates === "boolean" ? value.checkUpdates : DEFAULT_SETTINGS.checkUpdates,
     terminal: {
       fontSize: clampInt(terminal.fontSize, FONT_SIZE_RANGE, defaults.fontSize),
       scheme: pick(terminal.scheme, ["auto", "dracula", "solarizedDark", "githubLight"], defaults.scheme),
