@@ -29,6 +29,7 @@ import {
 } from "../../ipc";
 import { formatBytes, formatPermissions, formatTime } from "../../lib/format";
 import { ConfirmDialog } from "../../ui/ConfirmDialog";
+import { ContextMenu } from "../../ui/ContextMenu";
 import { NameDialog } from "../../ui/NameDialog";
 import { compactInputClass, iconButton } from "../../ui/controls";
 import { ChmodDialog } from "./ChmodDialog";
@@ -75,6 +76,8 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; entries: RemoteEntry[] } | null>(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
   const scroller = useRef<HTMLDivElement>(null);
   const request = useRef(0);
 
@@ -307,6 +310,8 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
         onClick={(event) => {
           if (event.target === event.currentTarget) setSelection(emptySelection);
         }}
+        // Only a file row offers a menu; the blank space around the rows does nothing.
+        onContextMenu={(event) => event.preventDefault()}
       >
         <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
           {virtualizer.getVirtualItems().map((item) => {
@@ -331,6 +336,12 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
                   )
                 }
                 onDoubleClick={() => openEntry(entry)}
+                onContextMenu={(event) => {
+                  // A row outside the selection becomes the selection, as in Finder and Explorer.
+                  const targets = isSelected ? selected : [entry];
+                  if (!isSelected) setSelection(select(emptySelection, order, entry.path, { toggle: false, range: false }));
+                  setMenu({ x: event.clientX, y: event.clientY, entries: targets });
+                }}
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <EntryIcon entry={entry} />
@@ -366,6 +377,29 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
         <div className="pointer-events-none absolute inset-2 flex items-center justify-center rounded-lg border-2 border-dashed border-accent bg-accent/10">
           <p className="rounded-md bg-canvas px-3 py-2 shadow">松开以上传到 {path}</p>
         </div>
+      )}
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={closeMenu}
+          items={[
+            {
+              label: "编辑",
+              icon: <FilePen size={14} />,
+              disabled: menu.entries.length !== 1 || isDir(menu.entries[0]),
+              onSelect: () => onOpenFile(menu.entries[0].path),
+            },
+            { label: "下载", icon: <Download size={14} />, onSelect: () => void download(menu.entries) },
+            {
+              label: "重命名",
+              icon: <Pencil size={14} />,
+              disabled: menu.entries.length !== 1,
+              onSelect: () => setDialog({ kind: "rename", entry: menu.entries[0] }),
+            },
+          ]}
+        />
       )}
 
       {dialog?.kind === "mkdir" && path && (

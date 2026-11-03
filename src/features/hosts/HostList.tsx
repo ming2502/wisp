@@ -98,7 +98,7 @@ export function HostList(props: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between px-3 pb-1.5 pt-1">
+      <div className="flex select-none items-center justify-between px-3 pb-1.5 pt-1">
         <h1 className="text-[11px] font-semibold uppercase tracking-wider text-muted">主机</h1>
         <span className="flex">
           <button type="button" aria-label="从 SSH 配置导入" title="从 SSH 配置导入" className={iconButton} onClick={props.onImport}>
@@ -124,7 +124,8 @@ export function HostList(props: Props) {
           />
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+      {/* Not selectable, so a double click on blank space does not highlight the host names. */}
+      <div className="min-h-0 flex-1 select-none overflow-y-auto px-2 pb-3">
         {hosts.length === 0 ? (
           <div className="mx-1 mt-2 rounded-lg border border-dashed border-line-strong px-3 py-6 text-center text-sm text-muted">
             <Server size={20} className="mx-auto mb-2 text-muted" strokeWidth={1.5} />
