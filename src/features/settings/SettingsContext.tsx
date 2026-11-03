@@ -43,7 +43,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
 
   const update = useCallback((change: (current: Settings) => Settings) => {

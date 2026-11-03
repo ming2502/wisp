@@ -378,51 +378,58 @@ export default function App() {
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         <div data-tauri-drag-region className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-panel pr-2">
-          <div data-tauri-drag-region role="tablist" className="flex h-full min-w-0 flex-1 items-end gap-0.5 overflow-x-auto px-1.5 [scrollbar-width:none]">
+          <div
+            data-tauri-drag-region
+            role="tablist"
+            className="flex h-full min-w-0 flex-1 items-end overflow-x-auto overscroll-x-none px-1.5 select-none [scrollbar-width:none]"
+          >
             {tabs.map((tab) => {
               const active = tab.key === activeKey;
               return (
-                <div
-                  key={tab.key}
-                  className={`group relative flex h-8 shrink-0 items-center rounded-t-md text-[13px] transition-colors duration-150 ${
-                    active ? "bg-canvas text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-hover hover:text-ink"
-                  }`}
-                >
-                  {active && <span aria-hidden className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-accent" />}
-                  {active && <span aria-hidden className="absolute inset-x-px -bottom-px h-px bg-canvas" />}
-                  <button
-                    role="tab"
-                    aria-selected={active}
-                    title={tab.kind === "editor" ? tab.path : tab.title}
-                    className="flex h-full max-w-56 items-center gap-2 pl-3 pr-1.5"
-                    onClick={() => setActiveKey(tab.key)}
+                // Each tab spans the bar's full height and opts out of the window drag, so pressing
+                // just above a tab neither moves the window nor drags the tab.
+                <div key={tab.key} data-tauri-drag-region="false" className="flex h-full shrink-0 items-end pr-0.5">
+                  <div
+                    className={`group relative flex h-8 shrink-0 items-center rounded-t-md text-[13px] transition-colors duration-150 ${
+                      active ? "bg-canvas text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-hover hover:text-ink"
+                    }`}
                   >
-                    {tab.kind === "editor" ? (
-                      <FileText size={13} className="shrink-0" />
-                    ) : (
-                      <span
-                        aria-label={tab.end === "disconnected" ? "已断开" : tab.end ? "会话已结束" : "已连接"}
-                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                          tab.end === "disconnected" ? "bg-danger" : tab.end ? "bg-muted" : "bg-accent"
-                        }`}
-                      />
-                    )}
-                    <span className="truncate">{tab.title}</span>
-                  </button>
-                  <button
-                    aria-label={`关闭 ${tab.title}`}
-                    className="mr-1 flex h-5 w-5 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-selected hover:text-ink"
-                    onClick={() => requestClose(tab.key)}
-                  >
-                    {tab.kind === "editor" && tab.dirty ? (
-                      <>
-                        <span aria-label="未保存" className="h-2 w-2 rounded-full bg-accent group-hover:hidden" />
-                        <X size={13} className="hidden group-hover:block" />
-                      </>
-                    ) : (
-                      <X size={13} />
-                    )}
-                  </button>
+                    {active && <span aria-hidden className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-accent" />}
+                    {active && <span aria-hidden className="absolute inset-x-px -bottom-px h-px bg-canvas" />}
+                    <button
+                      role="tab"
+                      aria-selected={active}
+                      title={tab.kind === "editor" ? tab.path : tab.title}
+                      className="flex h-full max-w-56 items-center gap-2 pl-3 pr-1.5"
+                      onClick={() => setActiveKey(tab.key)}
+                    >
+                      {tab.kind === "editor" ? (
+                        <FileText size={13} className="shrink-0" />
+                      ) : (
+                        <span
+                          aria-label={tab.end === "disconnected" ? "已断开" : tab.end ? "会话已结束" : "已连接"}
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                            tab.end === "disconnected" ? "bg-danger" : tab.end ? "bg-muted" : "bg-accent"
+                          }`}
+                        />
+                      )}
+                      <span className="truncate">{tab.title}</span>
+                    </button>
+                    <button
+                      aria-label={`关闭 ${tab.title}`}
+                      className="mr-1 flex h-5 w-5 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-selected hover:text-ink"
+                      onClick={() => requestClose(tab.key)}
+                    >
+                      {tab.kind === "editor" && tab.dirty ? (
+                        <>
+                          <span aria-label="未保存" className="h-2 w-2 rounded-full bg-accent group-hover:hidden" />
+                          <X size={13} className="hidden group-hover:block" />
+                        </>
+                      ) : (
+                        <X size={13} />
+                      )}
+                    </button>
+                  </div>
                 </div>
               );
             })}

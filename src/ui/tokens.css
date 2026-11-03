@@ -38,6 +38,18 @@
   accent-color: var(--color-accent);
 }
 
+/*
+ * The appearance chosen in settings. These have to be stylesheet rules: Lightning CSS compiles
+ * light-dark() into variables that only a color-scheme declared here switches, so a color-scheme set
+ * from script would turn native controls dark while every surface still followed the system.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 /* The window never scrolls as a whole, and a trackpad swipe must not rubber-band it sideways. */
 html,
 body {
