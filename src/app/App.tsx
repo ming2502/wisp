@@ -31,7 +31,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { button, iconButton, primaryButton, secondaryButton } from "../ui/controls";
 import { Logo } from "../ui/Logo";
 import { Modal } from "../ui/Modal";
-import { isMac, isShortcut, shortcutLabel } from "../lib/platform";
+import { isShortcut, shortcutLabel } from "../lib/platform";
 import {
   groupDelete,
   hostDelete,
@@ -61,9 +61,6 @@ import {
 const EditorView = lazy(() =>
   import("../features/editor/EditorView").then((module) => ({ default: module.EditorView })),
 );
-
-/** Space for the macOS window buttons, which sit over the sidebar with the overlay title bar. */
-const TRAFFIC_LIGHTS = isMac ? "pl-[84px]" : "pl-3";
 
 type Dialog =
   | { kind: "connect"; host: Host; replacing?: number }
@@ -326,12 +323,7 @@ export default function App() {
   return (
     <div className="flex h-screen">
       <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-panel">
-        <div data-tauri-drag-region className={`flex h-10 shrink-0 items-center gap-2 ${TRAFFIC_LIGHTS} pr-3`}>
-          <Logo size={18} />
-          <span data-tauri-drag-region className="text-sm font-semibold tracking-tight">
-            wisp
-          </span>
-        </div>
+        <div data-tauri-drag-region className="h-10 shrink-0" />
         <div className="min-h-0 flex-1">
           {loadError ? (
             <p role="alert" className="p-4 text-sm text-danger">

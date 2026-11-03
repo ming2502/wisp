@@ -105,6 +105,11 @@ export const SCHEME_LABELS: Record<TerminalScheme, string> = {
 };
 
 export function terminalTheme(scheme: TerminalScheme, appDark: boolean): ITheme {
+  // The overview ruler beside the scrollbar draws a light 1px border by default.
+  return { ...schemeTheme(scheme, appDark), overviewRulerBorder: "transparent" };
+}
+
+function schemeTheme(scheme: TerminalScheme, appDark: boolean): ITheme {
   switch (scheme) {
     case "auto":
       return appDark ? dark : githubLight;
