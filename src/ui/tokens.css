@@ -38,6 +38,14 @@
   accent-color: var(--color-accent);
 }
 
+/* The window never scrolls as a whole, and a trackpad swipe must not rubber-band it sideways. */
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   background: var(--color-canvas);
@@ -94,6 +102,19 @@ summary {
 }
 ::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/*
+ * xterm scrolls with its own scrollbar over a viewport that is always overflow-y: scroll. WebKit
+ * draws a permanent track for that viewport once scrollbars are styled, as a strip on the right.
+ */
+.xterm .xterm-viewport {
+  scrollbar-width: none;
+}
+.xterm .xterm-viewport::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* The terminal's own scrollbar: a slim thumb with no shadow under the top edge. */
