@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Modal } from "../../ui/Modal";
 import { Field } from "../../ui/Field";
-import { inputClass, secondaryButton } from "../../ui/controls";
+import { button, inputClass, secondaryButton } from "../../ui/controls";
 import { SCHEME_LABELS } from "../terminal/schemes";
 import { FONT_SIZE_RANGE, SCROLLBACK_RANGE, type Appearance, type CursorStyle, type TerminalScheme } from "./settings";
 import { useSettings } from "./SettingsContext";
@@ -144,7 +144,7 @@ export function SettingsDialog({ onClose, updater }: { onClose: () => void; upda
             </span>
             <button
               type="button"
-              className={`${secondaryButton} shrink-0 py-1 text-xs`}
+              className={button("secondary", "sm")}
               disabled={updater.status.kind === "checking" || updater.status.kind === "installing"}
               onClick={updater.checkNow}
             >

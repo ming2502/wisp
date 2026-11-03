@@ -30,7 +30,7 @@ import {
 import { formatBytes, formatPermissions, formatTime } from "../../lib/format";
 import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { NameDialog } from "../../ui/NameDialog";
-import { iconButton, inputClass } from "../../ui/controls";
+import { compactInputClass, iconButton } from "../../ui/controls";
 import { ChmodDialog } from "./ChmodDialog";
 import { emptySelection, moveFocus, prune, select, selectAll, type Selection } from "./selection";
 
@@ -256,7 +256,7 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
         >
           <input
             aria-label="路径"
-            className={`${inputClass} py-1 font-mono text-xs`}
+            className={`${compactInputClass} font-mono`}
             spellCheck={false}
             value={typedPath}
             onChange={(event) => setTypedPath(event.target.value)}

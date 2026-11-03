@@ -5,7 +5,7 @@ import { RotateCcw, Save } from "lucide-react";
 import { asEditFailure, editorOpen, editorSave, type EditFailure, type FileVersion, type TextFile } from "../../ipc";
 import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { Modal } from "../../ui/Modal";
-import { dangerButton, primaryButton, secondaryButton } from "../../ui/controls";
+import { button, dangerButton, iconButton, secondaryButton } from "../../ui/controls";
 import { DiffDialog } from "./DiffDialog";
 import { useSettings } from "../settings/SettingsContext";
 import { editorState, languageFor, themeFor } from "./codemirror";
@@ -195,7 +195,7 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
           type="button"
           aria-label="从服务器重新加载"
           title="从服务器重新加载"
-          className="rounded p-1 text-muted hover:bg-line hover:text-ink disabled:opacity-40"
+          className={`${iconButton} disabled:opacity-40`}
           disabled={!connected || !file}
           onClick={() => (dirty ? setDialog({ kind: "reload" }) : setGeneration(generation + 1))}
         >
@@ -203,7 +203,7 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
         </button>
         <button
           type="button"
-          className={`${primaryButton} flex items-center gap-1 py-1 text-xs`}
+          className={button("primary", "sm")}
           disabled={!file || file.readOnly || !dirty || saving || !connected}
           onClick={() => void save()}
           title="保存 (⌘S / Ctrl+S)"

@@ -17,11 +17,13 @@ import {
 } from "../../ipc";
 import { isMac, isShortcut } from "../../lib/platform";
 import { useSettings } from "../settings/SettingsContext";
+import { iconButton } from "../../ui/controls";
 import { createInputQueue } from "./inputQueue";
 import { terminalTheme } from "./schemes";
 
 const ACK_BATCH_BYTES = 32 * 1024;
 const RESIZE_DEBOUNCE_MS = 80;
+const SCROLLBAR_WIDTH = 6;
 const FONT_FAMILY = '"JetBrains Mono", Menlo, Consolas, "PingFang SC", "Microsoft YaHei", monospace';
 
 const END_MESSAGE: Record<TerminalEnd["kind"], string> = {
@@ -74,6 +76,8 @@ export function TerminalView({ sessionId, visible, onEnd }: Props) {
           scrollback: start.terminal.scrollback,
           theme: terminalTheme(start.terminal.scheme, startDark),
           macOptionIsMeta: true,
+          // The ruler width also sets the scrollbar width, which is 14px by default.
+          overviewRuler: { width: SCROLLBAR_WIDTH },
         });
         const fitAddon = new FitAddon();
         const searchAddon = new SearchAddon();
@@ -237,11 +241,13 @@ export function TerminalView({ sessionId, visible, onEnd }: Props) {
   const background = terminalTheme(settings.terminal.scheme, dark).background;
 
   return (
-    <div className="relative h-full w-full" style={{ background }}>
-      <div ref={container} className="h-full w-full overflow-hidden p-2" />
+    // The padding sits outside the element xterm opens in: the fit addon measures that element's
+    // full height without subtracting its padding, so padding there pushes the last rows out of view.
+    <div className="relative h-full w-full py-2 pl-3 pr-1" style={{ background }}>
+      <div ref={container} className="h-full w-full overflow-hidden" />
       {searching && (
         <form
-          className="absolute right-3 top-2 flex items-center gap-1 rounded-md border border-line bg-canvas p-1 shadow-lg"
+          className="absolute right-3 top-2 flex items-center gap-1 rounded-lg border border-line-strong bg-raised p-1 shadow-overlay"
           onSubmit={(event) => {
             event.preventDefault();
             find();
@@ -262,13 +268,13 @@ export function TerminalView({ sessionId, visible, onEnd }: Props) {
               }
             }}
           />
-          <button type="button" aria-label="上一个" className="rounded p-1 text-muted hover:bg-line" onClick={() => find(true)}>
+          <button type="button" aria-label="上一个" className={iconButton} onClick={() => find(true)}>
             <ChevronUp size={14} />
           </button>
-          <button type="submit" aria-label="下一个" className="rounded p-1 text-muted hover:bg-line">
+          <button type="submit" aria-label="下一个" className={iconButton}>
             <ChevronDown size={14} />
           </button>
-          <button type="button" aria-label="关闭搜索" className="rounded p-1 text-muted hover:bg-line" onClick={closeSearch}>
+          <button type="button" aria-label="关闭搜索" className={iconButton} onClick={closeSearch}>
             <X size={14} />
           </button>
         </form>

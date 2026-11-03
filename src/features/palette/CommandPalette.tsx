@@ -23,7 +23,7 @@ interface Props {
 }
 
 const itemClass =
-  "flex cursor-default items-center gap-2.5 rounded-md px-2.5 py-2 text-sm data-[selected=true]:bg-accent/15";
+  "flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm data-[selected=true]:bg-selected";
 
 export function CommandPalette({ hosts, tabs, actions, onConnect, onSwitch, onClose }: Props) {
   const run = (action: () => void) => {
@@ -34,17 +34,17 @@ export function CommandPalette({ hosts, tabs, actions, onConnect, onSwitch, onCl
   return (
     <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/20" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px]" />
         <Dialog.Content
           aria-describedby={undefined}
-          className="fixed left-1/2 top-[15vh] z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-lg border border-line bg-canvas shadow-2xl"
+          className="fixed left-1/2 top-[15vh] z-50 w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border border-line-strong bg-raised shadow-overlay"
         >
           <Dialog.Title className="sr-only">命令面板</Dialog.Title>
           <Command label="命令面板" loop>
             <Command.Input
               autoFocus
               placeholder="搜索主机、标签页或操作…"
-              className="w-full border-b border-line bg-transparent px-4 py-3 text-sm outline-none"
+              className="w-full border-b border-line bg-transparent px-4 py-3.5 text-sm outline-none placeholder:text-muted"
             />
             <Command.List className="max-h-80 overflow-y-auto p-1.5">
               <Command.Empty className="px-3 py-6 text-center text-sm text-muted">没有匹配的结果</Command.Empty>

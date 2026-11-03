@@ -1,18 +1,41 @@
 @import "tailwindcss";
 
+/*
+ * Slate surfaces with a green accent, after the ui-ux-pro-max "Developer Tool / IDE" palette.
+ * Every text pair keeps at least 4.5:1 contrast in both themes.
+ */
 @theme {
-  --color-canvas: light-dark(#ffffff, #101114);
-  --color-panel: light-dark(#f5f5f7, #17181c);
-  --color-line: light-dark(#e3e3e8, #2a2c32);
-  --color-ink: light-dark(#1c1c1f, #ececf1);
-  --color-muted: light-dark(#6e6e76, #9a9aa5);
-  --color-accent: light-dark(#2f6fed, #3b78f0);
-  --color-danger: light-dark(#c62f2f, #f07070);
+  /* Surfaces, from the window background up to floating layers. */
+  --color-canvas: light-dark(#ffffff, #0f172a);
+  --color-panel: light-dark(#f8fafc, #0b1120);
+  --color-raised: light-dark(#ffffff, #1b2336);
+  --color-hover: light-dark(#f1f5f9, #1e293b);
+  --color-selected: light-dark(#e2e8f0, #273349);
+  --color-line: light-dark(#e2e8f0, #1f2a3d);
+  --color-line-strong: light-dark(#cbd5e1, #334155);
+
+  /* Text. */
+  --color-ink: light-dark(#0f172a, #f1f5f9);
+  --color-muted: light-dark(#64748b, #94a3b8);
+
+  /* Roles. */
+  --color-accent: light-dark(#15803d, #22c55e);
+  --color-accent-hover: light-dark(#166534, #4ade80);
+  --color-on-accent: light-dark(#ffffff, #0f172a);
+  --color-danger: light-dark(#dc2626, #f87171);
+  --color-on-danger: light-dark(#ffffff, #0f172a);
+  --color-warning: light-dark(#b45309, #fbbf24);
+
   --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", Menlo, Consolas, "PingFang SC", "Microsoft YaHei", monospace;
+
+  --shadow-overlay: 0 16px 48px -12px rgb(2 6 23 / 0.35), 0 0 0 1px rgb(2 6 23 / 0.04);
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
 }
 
 :root {
   color-scheme: light dark;
+  accent-color: var(--color-accent);
 }
 
 body {
@@ -20,4 +43,63 @@ body {
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One focus ring for every control, shown only for keyboard focus. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+summary {
+  cursor: pointer;
+}
+
+/* Thin scrollbars that only show their thumb, to match the terminal's. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-muted) 40%, transparent) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-muted) 40%, transparent) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--color-muted) 65%, transparent);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* The terminal's own scrollbar: a slim thumb with no shadow under the top edge. */
+.xterm .xterm-scrollable-element > .shadow {
+  display: none;
+}
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
 }

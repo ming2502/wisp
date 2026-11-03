@@ -1,7 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  CircleStop,
   Command as CommandIcon,
+  Download,
   FileDown,
   FileText,
   FolderOpen,
@@ -9,6 +11,7 @@ import {
   RotateCw,
   Settings as SettingsIcon,
   SquareTerminal,
+  WifiOff,
   X,
 } from "lucide-react";
 import { ConnectDialog } from "../features/connect/ConnectDialog";
@@ -25,7 +28,8 @@ import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { useSettings } from "../features/settings/SettingsContext";
 import { useUpdater } from "../features/updates/useUpdater";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { primaryButton, secondaryButton } from "../ui/controls";
+import { button, iconButton, primaryButton, secondaryButton } from "../ui/controls";
+import { Logo } from "../ui/Logo";
 import { Modal } from "../ui/Modal";
 import { isMac, isShortcut, shortcutLabel } from "../lib/platform";
 import {
@@ -58,8 +62,8 @@ const EditorView = lazy(() =>
   import("../features/editor/EditorView").then((module) => ({ default: module.EditorView })),
 );
 
-/** Space for the macOS window buttons, which sit over the content with the overlay title bar. */
-const DRAG_STRIP = isMac ? "h-7" : "h-0";
+/** Space for the macOS window buttons, which sit over the sidebar with the overlay title bar. */
+const TRAFFIC_LIGHTS = isMac ? "pl-[84px]" : "pl-3";
 
 type Dialog =
   | { kind: "connect"; host: Host; replacing?: number }
@@ -74,24 +78,44 @@ type Dialog =
   | { kind: "update" }
   | { kind: "quit" };
 
+function Kbd({ children }: { children: string }) {
+  return (
+    <kbd className="rounded border border-line-strong bg-canvas px-1.5 py-px font-sans text-[11px] text-muted">{children}</kbd>
+  );
+}
+
 function Welcome({ onNewHost, onImport, onPalette }: { onNewHost: () => void; onImport: () => void; onPalette: () => void }) {
   return (
     <div className="flex h-full items-center justify-center p-8">
-      <div className="max-w-sm text-center">
-        <SquareTerminal size={36} className="mx-auto text-muted" strokeWidth={1.5} />
-        <h2 className="mt-4 text-lg font-semibold">wisp</h2>
-        <p className="mt-1 text-sm text-muted">在左侧选择主机连接，或者：</p>
-        <div className="mt-5 flex justify-center gap-2">
-          <button type="button" className={primaryButton} onClick={onNewHost}>
-            新建主机
-          </button>
-          <button type="button" className={secondaryButton} onClick={onImport}>
-            从 SSH 配置导入
-          </button>
+      <div className="w-full max-w-sm">
+        <Logo size={44} />
+        <h2 className="mt-5 text-xl font-semibold tracking-tight">开始连接</h2>
+        <p className="mt-1.5 text-sm text-muted">在左侧选择一台主机，或者先添加一台。</p>
+        <div className="mt-6 space-y-2">
+          {(
+            [
+              [Plus, "新建主机", "填写地址、用户和认证方式", onNewHost],
+              [FileDown, "从 SSH 配置导入", "读取 ~/.ssh/config 中的主机", onImport],
+              [CommandIcon, "命令面板", "搜索主机、标签页和操作", onPalette, shortcutLabel("K")],
+            ] as const
+          ).map(([Icon, title, detail, onClick, shortcut]) => (
+            <button
+              key={title}
+              type="button"
+              className="flex w-full items-center gap-3 rounded-lg border border-line bg-raised px-3.5 py-3 text-left transition-colors duration-150 hover:border-line-strong hover:bg-hover"
+              onClick={onClick}
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/12 text-accent">
+                <Icon size={16} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{title}</span>
+                <span className="block truncate text-xs text-muted">{detail}</span>
+              </span>
+              {shortcut && <Kbd>{shortcut}</Kbd>}
+            </button>
+          ))}
         </div>
-        <button type="button" className="mt-6 text-xs text-muted hover:text-ink" onClick={onPalette}>
-          按 <kbd className="rounded border border-line px-1">{shortcutLabel("K")}</kbd> 打开命令面板
-        </button>
       </div>
     </div>
   );
@@ -139,6 +163,11 @@ export default function App() {
         counts.set(t.owner, (counts.get(t.owner) ?? 0) + 1);
     return counts;
   }, [transfers]);
+
+  const connectedHosts = useMemo(
+    () => new Set(tabs.flatMap((tab) => (tab.kind === "session" && !tab.end ? [tab.hostId] : []))),
+    [tabs],
+  );
 
   const refresh = useCallback(() => {
     hostsList()
@@ -296,8 +325,13 @@ export default function App() {
 
   return (
     <div className="flex h-screen">
-      <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-panel">
-        <div data-tauri-drag-region className={`${DRAG_STRIP} shrink-0`} />
+      <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-panel">
+        <div data-tauri-drag-region className={`flex h-10 shrink-0 items-center gap-2 ${TRAFFIC_LIGHTS} pr-3`}>
+          <Logo size={18} />
+          <span data-tauri-drag-region className="text-sm font-semibold tracking-tight">
+            wisp
+          </span>
+        </div>
         <div className="min-h-0 flex-1">
           {loadError ? (
             <p role="alert" className="p-4 text-sm text-danger">
@@ -307,6 +341,7 @@ export default function App() {
             <HostList
               hosts={data.hosts}
               groups={data.groups}
+              connected={connectedHosts}
               onConnect={(host) => setDialog({ kind: "connect", host })}
               onNewHost={() => setDialog({ kind: "editHost", host: null })}
               onEditHost={(host) => setDialog({ kind: "editHost", host })}
@@ -321,27 +356,28 @@ export default function App() {
         {updater.status.kind === "available" && (
           <button
             type="button"
-            className="mx-2 mb-1.5 rounded-md bg-accent/15 px-2.5 py-1.5 text-left text-xs text-accent hover:bg-accent/25"
+            className="mx-2 mb-2 flex items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-2.5 py-2 text-left text-xs text-accent transition-colors duration-150 hover:bg-accent/15"
             onClick={() => setDialog({ kind: "update" })}
           >
+            <Download size={14} className="shrink-0" />
             新版本 {updater.status.update.version} 可用，点击查看
           </button>
         )}
         <div className="flex shrink-0 items-center justify-between border-t border-line px-2 py-1.5">
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded px-1.5 py-1 text-xs text-muted hover:bg-line hover:text-ink"
+            className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
             onClick={() => setDialog({ kind: "palette" })}
           >
             <CommandIcon size={13} />
             命令面板
-            <kbd className="text-[11px]">{shortcutLabel("K")}</kbd>
+            <Kbd>{shortcutLabel("K")}</Kbd>
           </button>
           <button
             type="button"
             aria-label="设置"
             title={`设置 (${shortcutLabel(",")})`}
-            className="rounded p-1 text-muted hover:bg-line hover:text-ink"
+            className={iconButton}
             onClick={() => setDialog({ kind: "settings" })}
           >
             <SettingsIcon size={15} />
@@ -349,39 +385,59 @@ export default function App() {
         </div>
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
-        <div data-tauri-drag-region className="flex min-h-9 shrink-0 overflow-x-auto border-b border-line bg-panel" role="tablist">
-          {tabs.map((tab) => (
-            <div
-              key={tab.key}
-              className={`flex items-center border-r border-line text-sm ${tab.key === activeKey ? "bg-canvas" : "text-muted"}`}
-            >
-              <button
-                role="tab"
-                aria-selected={tab.key === activeKey}
-                title={tab.kind === "editor" ? tab.path : tab.title}
-                className="flex max-w-56 items-center gap-1.5 py-2 pl-3 pr-2"
-                onClick={() => setActiveKey(tab.key)}
-              >
-                {tab.kind === "editor" && <FileText size={13} className="shrink-0" />}
-                {tab.kind === "session" && tab.end === "disconnected" && (
-                  <span aria-label="已断开" className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
-                )}
-                <span className="truncate">{tab.title}</span>
-                {tab.kind === "editor" && tab.dirty && (
-                  <span aria-label="未保存" className="text-accent">
-                    ●
-                  </span>
-                )}
-              </button>
-              <button aria-label={`关闭 ${tab.title}`} className="mr-1.5 rounded p-1 hover:bg-line" onClick={() => requestClose(tab.key)}>
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
-        {activeTab?.kind === "session" && (
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-2 py-1">
-            <div role="radiogroup" aria-label="视图" className="flex rounded-md bg-panel p-0.5 text-xs">
+        <div data-tauri-drag-region className="flex h-10 shrink-0 items-center gap-2 border-b border-line bg-panel pr-2">
+          <div data-tauri-drag-region role="tablist" className="flex h-full min-w-0 flex-1 items-end gap-0.5 overflow-x-auto px-1.5 [scrollbar-width:none]">
+            {tabs.map((tab) => {
+              const active = tab.key === activeKey;
+              return (
+                <div
+                  key={tab.key}
+                  className={`group relative flex h-8 shrink-0 items-center rounded-t-md text-[13px] transition-colors duration-150 ${
+                    active ? "bg-canvas text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-hover hover:text-ink"
+                  }`}
+                >
+                  {active && <span aria-hidden className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-accent" />}
+                  {active && <span aria-hidden className="absolute inset-x-px -bottom-px h-px bg-canvas" />}
+                  <button
+                    role="tab"
+                    aria-selected={active}
+                    title={tab.kind === "editor" ? tab.path : tab.title}
+                    className="flex h-full max-w-56 items-center gap-2 pl-3 pr-1.5"
+                    onClick={() => setActiveKey(tab.key)}
+                  >
+                    {tab.kind === "editor" ? (
+                      <FileText size={13} className="shrink-0" />
+                    ) : (
+                      <span
+                        aria-label={tab.end === "disconnected" ? "已断开" : tab.end ? "会话已结束" : "已连接"}
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                          tab.end === "disconnected" ? "bg-danger" : tab.end ? "bg-muted" : "bg-accent"
+                        }`}
+                      />
+                    )}
+                    <span className="truncate">{tab.title}</span>
+                  </button>
+                  <button
+                    aria-label={`关闭 ${tab.title}`}
+                    className="mr-1 flex h-5 w-5 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-selected hover:text-ink"
+                    onClick={() => requestClose(tab.key)}
+                  >
+                    {tab.kind === "editor" && tab.dirty ? (
+                      <>
+                        <span aria-label="未保存" className="h-2 w-2 rounded-full bg-accent group-hover:hidden" />
+                        <X size={13} className="hidden group-hover:block" />
+                      </>
+                    ) : (
+                      <X size={13} />
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {notice && <span className="max-w-[40%] truncate text-xs text-muted" title={notice}>{notice}</span>}
+          {activeTab?.kind === "session" && (
+            <div role="radiogroup" aria-label="视图" className="flex shrink-0 rounded-md border border-line bg-canvas p-0.5 text-xs">
               {(
                 [
                   ["terminal", "终端", SquareTerminal],
@@ -392,7 +448,9 @@ export default function App() {
                   key={view}
                   role="radio"
                   aria-checked={activeTab.view === view}
-                  className={`flex items-center gap-1.5 rounded px-2.5 py-1 ${activeTab.view === view ? "bg-canvas shadow-sm" : "text-muted"}`}
+                  className={`flex h-6 items-center gap-1.5 rounded px-2.5 transition-colors duration-150 ${
+                    activeTab.view === view ? "bg-selected font-medium text-ink" : "text-muted hover:text-ink"
+                  }`}
                   onClick={() => setView(activeTab.key, view)}
                 >
                   <Icon size={13} />
@@ -400,17 +458,22 @@ export default function App() {
                 </button>
               ))}
             </div>
-            {notice && <span className="truncate text-xs text-muted">{notice}</span>}
-          </div>
-        )}
+          )}
+        </div>
         {activeTab?.kind === "session" && activeTab.end && (
-          <div role="status" className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-panel px-3 py-1.5 text-sm">
-            <span className={activeTab.end === "disconnected" ? "text-danger" : "text-muted"}>
+          <div
+            role="status"
+            className={`flex shrink-0 items-center justify-between gap-3 border-b px-3 py-2 text-sm ${
+              activeTab.end === "disconnected" ? "border-danger/25 bg-danger/8" : "border-line bg-panel"
+            }`}
+          >
+            <span className={`flex items-center gap-2 ${activeTab.end === "disconnected" ? "text-danger" : "text-muted"}`}>
+              {activeTab.end === "disconnected" ? <WifiOff size={15} className="shrink-0" /> : <CircleStop size={15} className="shrink-0" />}
               {activeTab.end === "disconnected"
                 ? "连接已断开。终端内容和未保存的编辑都已保留，未完成的传输可以在重连后继续。"
                 : "终端会话已结束，文件视图仍可使用。"}
             </span>
-            <button type="button" className={`${primaryButton} flex shrink-0 items-center gap-1.5 py-1 text-xs`} onClick={() => reconnect(activeTab)}>
+            <button type="button" className={button("primary", "sm")} onClick={() => reconnect(activeTab)}>
               <RotateCw size={13} />
               {activeTab.end === "disconnected" ? "重新连接" : "重新打开"}
             </button>

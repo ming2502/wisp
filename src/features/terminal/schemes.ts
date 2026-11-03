@@ -2,12 +2,12 @@ import type { ITheme } from "@xterm/xterm";
 import type { TerminalScheme } from "../settings/settings";
 
 const dark: ITheme = {
-  background: "#101114",
-  foreground: "#e6e6ea",
-  cursor: "#e6e6ea",
-  cursorAccent: "#101114",
-  selectionBackground: "#3a4a6b",
-  black: "#1c1d22",
+  background: "#0f172a",
+  foreground: "#e2e8f0",
+  cursor: "#e2e8f0",
+  cursorAccent: "#0f172a",
+  selectionBackground: "#334155",
+  black: "#1e293b",
   red: "#f07178",
   green: "#a6d189",
   yellow: "#e5c890",
@@ -15,7 +15,7 @@ const dark: ITheme = {
   magenta: "#c792ea",
   cyan: "#89ddff",
   white: "#d0d0d6",
-  brightBlack: "#5c5f6a",
+  brightBlack: "#64748b",
   brightRed: "#ff8b92",
   brightGreen: "#c3e88d",
   brightYellow: "#ffcb6b",
