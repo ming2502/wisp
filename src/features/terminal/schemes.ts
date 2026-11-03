@@ -105,8 +105,10 @@ export const SCHEME_LABELS: Record<TerminalScheme, string> = {
 };
 
 export function terminalTheme(scheme: TerminalScheme, appDark: boolean): ITheme {
-  // The overview ruler beside the scrollbar draws a light 1px border by default.
-  return { ...schemeTheme(scheme, appDark), overviewRulerBorder: "transparent" };
+  // The overview ruler beside the scrollbar draws a 1px border, white unless set. xterm does not
+  // parse "transparent", so the border takes the background colour to disappear.
+  const theme = schemeTheme(scheme, appDark);
+  return { ...theme, overviewRulerBorder: theme.background };
 }
 
 function schemeTheme(scheme: TerminalScheme, appDark: boolean): ITheme {
