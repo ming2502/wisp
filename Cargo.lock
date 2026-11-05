@@ -6280,7 +6280,7 @@ dependencies = [
 
 [[package]]
 name = "wisp"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6297,7 +6297,7 @@ dependencies = [
 
 [[package]]
 name = "wisp-core"
-version = "0.3.0"
+version = "0.3.2"
 dependencies = [
  "keyring",
  "log",
