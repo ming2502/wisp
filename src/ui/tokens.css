@@ -25,6 +25,8 @@
   --color-danger: light-dark(#dc2626, #f87171);
   --color-on-danger: light-dark(#ffffff, #0f172a);
   --color-warning: light-dark(#b45309, #fbbf24);
+  --color-tooltip: light-dark(#1e293b, #334155);
+  --color-on-tooltip: light-dark(#f8fafc, #f1f5f9);
 
   --font-sans: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-mono: "JetBrains Mono", Menlo, Consolas, "PingFang SC", "Microsoft YaHei", monospace;

@@ -98,6 +98,10 @@ struct StoreFile {
     groups: Vec<Group>,
     #[serde(default)]
     hosts: Vec<Host>,
+    /// Hosts are listed in the order saved here. Files from before that were listed by name, so
+    /// they are sorted that way once on load. Older versions ignore this field.
+    #[serde(default)]
+    hosts_ordered: bool,
 }
 
 pub struct HostStore {
@@ -139,6 +143,12 @@ impl HostStore {
                 });
             }
         };
+        let mut data = data;
+        if !data.hosts_ordered {
+            data.hosts
+                .sort_by_cached_key(|host| host.name.to_lowercase());
+            data.hosts_ordered = true;
+        }
         Ok(Self { path, data })
     }
 
@@ -269,6 +279,37 @@ impl HostStore {
         Ok(group)
     }
 
+    /// Moves a host into a group, or out of every group with `None`, and places it just before
+    /// another host, or last when `before` is `None`.
+    pub fn move_host(
+        &mut self,
+        id: &str,
+        group_id: Option<String>,
+        before: Option<&str>,
+    ) -> Result<Host, StoreError> {
+        if group_id
+            .as_ref()
+            .is_some_and(|group| !self.data.groups.iter().any(|g| &g.id == group))
+            || before.is_some_and(|before| before == id || self.host(before).is_err())
+        {
+            return Err(StoreError::NotFound);
+        }
+        let from = self
+            .data
+            .hosts
+            .iter()
+            .position(|host| host.id == id)
+            .ok_or(StoreError::NotFound)?;
+        let mut host = self.data.hosts.remove(from);
+        host.group_id = group_id;
+        let to = before
+            .and_then(|before| self.data.hosts.iter().position(|h| h.id == before))
+            .unwrap_or(self.data.hosts.len());
+        self.data.hosts.insert(to, host.clone());
+        self.persist()?;
+        Ok(host)
+    }
+
     /// Hosts in the group are kept and become ungrouped.
     pub fn delete_group(&mut self, id: &str) -> Result<(), StoreError> {
         self.data.groups.retain(|group| group.id != id);
@@ -386,6 +427,64 @@ mod tests {
                 .unwrap()
                 .map(|secret| secret.to_string())
         }
+    }
+
+    fn names(store: &HostStore) -> Vec<(&str, Option<&str>)> {
+        store
+            .hosts()
+            .iter()
+            .map(|host| (host.host.as_str(), host.group_id.as_deref()))
+            .collect()
+    }
+
+    #[test]
+    fn moved_hosts_keep_their_place_and_group() {
+        let mut f = Fixture::new();
+        let ids: Vec<String> = ["a", "b", "c"]
+            .iter()
+            .map(|name| {
+                f.store
+                    .save_host(draft(name, HostAuth::Agent), SecretChange::Keep, &f.secrets)
+                    .unwrap()
+                    .id
+            })
+            .collect();
+        let group = f.store.save_group(None, "生产").unwrap();
+
+        f.store.move_host(&ids[2], None, Some(&ids[0])).unwrap();
+        assert_eq!(names(&f.store), [("c", None), ("a", None), ("b", None)]);
+        f.store
+            .move_host(&ids[0], Some(group.id.clone()), None)
+            .unwrap();
+        assert_eq!(
+            names(&f.reload()),
+            [("c", None), ("b", None), ("a", Some(group.id.as_str()))]
+        );
+
+        assert!(f.store.move_host(&ids[0], None, Some(&ids[0])).is_err());
+        assert!(
+            f.store
+                .move_host(&ids[0], Some("gone".into()), None)
+                .is_err()
+        );
+        assert!(f.store.move_host("gone", None, None).is_err());
+        assert_eq!(f.store.hosts().len(), 3);
+    }
+
+    #[test]
+    fn hosts_from_before_ordering_load_sorted_by_name() {
+        let f = Fixture::new();
+        let path = f.dir.path().join("config").join("hosts.json");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let host = |name: &str| {
+            serde_json::json!({"id": name, "name": name, "host": "h", "port": 22, "user": "u",
+                "groupId": null, "auth": {"kind": "agent"}, "savedSecret": false})
+        };
+        let file =
+            serde_json::json!({"schemaVersion": 1, "hosts": [host("b"), host("C"), host("a")]});
+        std::fs::write(&path, file.to_string()).unwrap();
+        let order: Vec<_> = f.reload().hosts().iter().map(|h| h.id.clone()).collect();
+        assert_eq!(order, ["a", "b", "C"]);
     }
 
     #[test]

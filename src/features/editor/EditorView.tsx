@@ -181,20 +181,20 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
   return (
     <div className="flex h-full flex-col bg-canvas">
       <div className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-1.5 text-xs">
-        <span className="min-w-0 flex-1 truncate font-mono text-muted" title={file?.path ?? path}>
+        <span className="min-w-0 flex-1 truncate font-mono text-muted" data-tooltip={file?.path ?? path} data-tooltip-overflow>
           {file?.path ?? path}
         </span>
         {file?.readOnly && <Badge tone="danger">非 UTF-8，只读</Badge>}
         {file?.mixedLineEndings && <Badge>换行符混用，保存时统一为 {file.format.lineEnding === "crlf" ? "CRLF" : "LF"}</Badge>}
         {file && <Badge>{file.format.lineEnding === "crlf" ? "CRLF" : "LF"}</Badge>}
         {file?.format.bom && <Badge>BOM</Badge>}
-        <span className={`truncate ${saveError || !connected ? "text-danger" : "text-muted"}`} title={status}>
+        <span className={`truncate ${saveError || !connected ? "text-danger" : "text-muted"}`} data-tooltip={status} data-tooltip-overflow>
           {status}
         </span>
         <button
           type="button"
           aria-label="从服务器重新加载"
-          title="从服务器重新加载"
+          data-tooltip="从服务器重新加载"
           className={`${iconButton} disabled:opacity-40`}
           disabled={!connected || !file}
           onClick={() => (dirty ? setDialog({ kind: "reload" }) : setGeneration(generation + 1))}
@@ -206,7 +206,7 @@ export function EditorView({ sessionId, path, connected, visible, onDirtyChange 
           className={button("primary", "sm")}
           disabled={!file || file.readOnly || !dirty || saving || !connected}
           onClick={() => void save()}
-          title="保存 (⌘S / Ctrl+S)"
+          data-tooltip="保存 (⌘S / Ctrl+S)"
         >
           <Save size={13} />
           保存

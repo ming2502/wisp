@@ -24,7 +24,7 @@ function TransferRow({ transfer, speed }: { transfer: TransferInfo; speed?: numb
       <Direction size={14} className="shrink-0 text-muted" aria-label={transfer.direction === "upload" ? "上传" : "下载"} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3 text-sm">
-          <span className="truncate" title={destination}>
+          <span className="truncate" data-tooltip={destination} data-tooltip-overflow>
             {transfer.name}
           </span>
           <span className="shrink-0 text-xs tabular-nums text-muted">
@@ -38,28 +38,28 @@ function TransferRow({ transfer, speed }: { transfer: TransferInfo; speed?: numb
             style={{ width: `${percent}%` }}
           />
         </div>
-        <p className={`mt-0.5 truncate text-xs ${state.kind === "failed" ? "text-danger" : "text-muted"}`} title={state.kind === "failed" ? state.message : undefined}>
+        <p className={`mt-0.5 truncate text-xs ${state.kind === "failed" ? "text-danger" : "text-muted"}`} data-tooltip={state.kind === "failed" ? state.message : undefined} data-tooltip-overflow>
           {state.kind === "failed" ? `失败：${state.message}` : STATE_LABELS[state.kind]}
         </p>
       </div>
       <span className="flex shrink-0">
         {(state.kind === "running" || state.kind === "queued") && (
-          <button type="button" aria-label="暂停" title="暂停" className={iconButton} onClick={() => void transferPause(transfer.id)}>
+          <button type="button" aria-label="暂停" data-tooltip="暂停" className={iconButton} onClick={() => void transferPause(transfer.id)}>
             <Pause size={14} />
           </button>
         )}
         {state.kind === "paused" && (
-          <button type="button" aria-label="继续" title="继续" className={iconButton} onClick={() => void transferResume(transfer.id)}>
+          <button type="button" aria-label="继续" data-tooltip="继续" className={iconButton} onClick={() => void transferResume(transfer.id)}>
             <Play size={14} />
           </button>
         )}
         {state.kind === "failed" && (
-          <button type="button" aria-label="重试" title="重试" className={iconButton} onClick={() => void transferResume(transfer.id)}>
+          <button type="button" aria-label="重试" data-tooltip="重试" className={iconButton} onClick={() => void transferResume(transfer.id)}>
             <RotateCw size={14} />
           </button>
         )}
         {state.kind !== "completed" && state.kind !== "cancelled" && (
-          <button type="button" aria-label="取消" title="取消并删除未完成的部分" className={iconButton} onClick={() => void transferCancel(transfer.id)}>
+          <button type="button" aria-label="取消" data-tooltip="取消并删除未完成的部分" className={iconButton} onClick={() => void transferCancel(transfer.id)}>
             <X size={14} />
           </button>
         )}

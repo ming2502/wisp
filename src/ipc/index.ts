@@ -82,6 +82,11 @@ export function hostSave(draft: HostDraft, secret: SecretChange): Promise<Host> 
   return invoke("host_save", { draft, secret });
 }
 
+/** Places a host before another one, or last, in a group or among ungrouped hosts (`null`). */
+export function hostMove(id: string, groupId: string | null, before: string | null): Promise<Host> {
+  return invoke("host_move", { id, groupId, before });
+}
+
 export function hostDelete(id: string): Promise<void> {
   return invoke("host_delete", { id });
 }

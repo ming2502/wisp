@@ -18,6 +18,7 @@ import { ConnectDialog } from "../features/connect/ConnectDialog";
 import { GroupEditor } from "../features/hosts/GroupEditor";
 import { HostEditor } from "../features/hosts/HostEditor";
 import { HostList } from "../features/hosts/HostList";
+import { moveHost } from "../features/hosts/order";
 import { ImportDialog } from "../features/hosts/ImportDialog";
 import { TerminalView } from "../features/terminal/TerminalView";
 import { FileBrowser } from "../features/files/FileBrowser";
@@ -35,6 +36,7 @@ import { isShortcut, shortcutLabel } from "../lib/platform";
 import {
   groupDelete,
   hostDelete,
+  hostMove,
   hostsList,
   sshDisconnect,
   appReady,
@@ -342,6 +344,12 @@ export default function App() {
               onEditGroup={(group) => setDialog({ kind: "editGroup", group })}
               onDeleteGroup={(group) => setDialog({ kind: "deleteGroup", group })}
               onImport={() => setDialog({ kind: "import" })}
+              onMoveHost={(host, drop) => {
+                setData((current) => ({ ...current, hosts: moveHost(current.hosts, host.id, drop) }));
+                hostMove(host.id, drop.groupId, drop.before)
+                  .catch((reason) => setNotice(`无法移动主机：${reason}`))
+                  .finally(refresh);
+              }}
             />
           )}
         </div>
@@ -368,7 +376,7 @@ export default function App() {
           <button
             type="button"
             aria-label="设置"
-            title={`设置 (${shortcutLabel(",")})`}
+            data-tooltip={`设置 (${shortcutLabel(",")})`}
             className={iconButton}
             onClick={() => setDialog({ kind: "settings" })}
           >
@@ -399,7 +407,7 @@ export default function App() {
                   <button
                     role="tab"
                     aria-selected={active}
-                    title={tab.kind === "editor" ? tab.path : tab.title}
+                    data-tooltip={tab.kind === "editor" ? tab.path : undefined}
                     className="flex h-full max-w-56 items-center gap-2 pl-3 pr-1.5"
                     onClick={() => setActiveKey(tab.key)}
                   >
@@ -413,7 +421,14 @@ export default function App() {
                         }`}
                       />
                     )}
-                    <span className="truncate">{tab.title}</span>
+                    {/* A session tab names its host in full only when the name is cut short. */}
+                    <span
+                      className="truncate"
+                      data-tooltip={tab.kind === "editor" ? undefined : tab.title}
+                      data-tooltip-overflow
+                    >
+                      {tab.title}
+                    </span>
                   </button>
                   <button
                     aria-label={`关闭 ${tab.title}`}
@@ -433,7 +448,7 @@ export default function App() {
               );
             })}
           </div>
-          {notice && <span className="max-w-[40%] truncate text-xs text-muted" title={notice}>{notice}</span>}
+          {notice && <span className="max-w-[40%] truncate text-xs text-muted" data-tooltip={notice} data-tooltip-overflow>{notice}</span>}
           {activeTab?.kind === "session" && (
             <div role="radiogroup" aria-label="视图" className="flex shrink-0 rounded-md border border-line bg-canvas p-0.5 text-xs">
               {(

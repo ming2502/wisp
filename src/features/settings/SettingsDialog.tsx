@@ -192,7 +192,7 @@ export function SettingsDialog({ onClose, updater }: { onClose: () => void; upda
             <span className="flex min-w-0 items-center gap-3">
               <span
                 className={`truncate text-xs ${updater.status.kind === "error" ? "text-danger" : "text-muted"}`}
-                title={updateText(updater)}
+                data-tooltip={updateText(updater)} data-tooltip-overflow
               >
                 {updateText(updater)}
               </span>

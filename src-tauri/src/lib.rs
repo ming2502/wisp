@@ -40,6 +40,7 @@ pub fn run() {
             commands::hosts::hosts_list,
             commands::hosts::host_save,
             commands::hosts::host_delete,
+            commands::hosts::host_move,
             commands::hosts::group_save,
             commands::hosts::group_delete,
             commands::hosts::ssh_config_preview,

@@ -44,6 +44,21 @@ pub fn host_delete(state: State<'_, AppState>, id: String) -> Result<(), String>
     state.with_store(|store| store.delete_host(&id, &Keychain).map_err(|e| e.to_string()))
 }
 
+/// Places a host before another one, or last, in the given group or among ungrouped hosts.
+#[tauri::command]
+pub fn host_move(
+    state: State<'_, AppState>,
+    id: String,
+    group_id: Option<String>,
+    before: Option<String>,
+) -> Result<Host, String> {
+    state.with_store(|store| {
+        store
+            .move_host(&id, group_id, before.as_deref())
+            .map_err(|e| e.to_string())
+    })
+}
+
 #[tauri::command]
 pub fn group_save(
     state: State<'_, AppState>,

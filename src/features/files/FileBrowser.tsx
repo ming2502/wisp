@@ -283,10 +283,10 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
   return (
     <div className="relative flex h-full flex-col bg-canvas text-sm">
       <div className="flex shrink-0 items-center gap-1 border-b border-line px-2 py-1.5">
-        <button type="button" aria-label="上级目录" title="上级目录" className={iconButton} onClick={goUp} disabled={!path || path === "/"}>
+        <button type="button" aria-label="上级目录" data-tooltip="上级目录" className={iconButton} onClick={goUp} disabled={!path || path === "/"}>
           <ArrowUp size={15} />
         </button>
-        <button type="button" aria-label="刷新" title="刷新" className={iconButton} onClick={refresh}>
+        <button type="button" aria-label="刷新" data-tooltip="刷新" className={iconButton} onClick={refresh}>
           <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
         </button>
         <form
@@ -305,28 +305,28 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
           />
         </form>
         <span className="mx-1 h-5 w-px bg-line" />
-        <button type="button" aria-label="新建文件夹" title="新建文件夹" className={iconButton} onClick={() => setDialog({ kind: "mkdir" })} disabled={!path}>
+        <button type="button" aria-label="新建文件夹" data-tooltip="新建文件夹" className={iconButton} onClick={() => setDialog({ kind: "mkdir" })} disabled={!path}>
           <FolderPlus size={15} />
         </button>
-        <button type="button" aria-label="上传文件" title="上传文件" className={iconButton} onClick={() => void pickAndUpload(false)} disabled={!path}>
+        <button type="button" aria-label="上传文件" data-tooltip="上传文件" className={iconButton} onClick={() => void pickAndUpload(false)} disabled={!path}>
           <Upload size={15} />
         </button>
-        <button type="button" aria-label="上传文件夹" title="上传文件夹" className={iconButton} onClick={() => void pickAndUpload(true)} disabled={!path}>
+        <button type="button" aria-label="上传文件夹" data-tooltip="上传文件夹" className={iconButton} onClick={() => void pickAndUpload(true)} disabled={!path}>
           <FolderUp size={15} />
         </button>
-        <button type="button" aria-label="下载" title="下载所选" className={iconButton} onClick={() => void download(selected)} disabled={selected.length === 0}>
+        <button type="button" aria-label="下载" data-tooltip="下载所选" className={iconButton} onClick={() => void download(selected)} disabled={selected.length === 0}>
           <Download size={15} />
         </button>
-        <button type="button" aria-label="编辑" title="在编辑器中打开" className={iconButton} onClick={() => one && !isDir(one) && onOpenFile(one.path)} disabled={!one || isDir(one)}>
+        <button type="button" aria-label="编辑" data-tooltip="在编辑器中打开" className={iconButton} onClick={() => one && !isDir(one) && onOpenFile(one.path)} disabled={!one || isDir(one)}>
           <FilePen size={15} />
         </button>
-        <button type="button" aria-label="重命名" title="重命名 (F2)" className={iconButton} onClick={() => one && setDialog({ kind: "rename", entry: one })} disabled={!one}>
+        <button type="button" aria-label="重命名" data-tooltip="重命名 (F2)" className={iconButton} onClick={() => one && setDialog({ kind: "rename", entry: one })} disabled={!one}>
           <Pencil size={15} />
         </button>
-        <button type="button" aria-label="修改权限" title="修改权限" className={iconButton} onClick={() => one && setDialog({ kind: "chmod", entry: one })} disabled={!one}>
+        <button type="button" aria-label="修改权限" data-tooltip="修改权限" className={iconButton} onClick={() => one && setDialog({ kind: "chmod", entry: one })} disabled={!one}>
           <KeyRound size={15} />
         </button>
-        <button type="button" aria-label="删除" title="删除" className={iconButton} onClick={() => setDialog({ kind: "delete", entries: selected })} disabled={selected.length === 0}>
+        <button type="button" aria-label="删除" data-tooltip="删除" className={iconButton} onClick={() => setDialog({ kind: "delete", entries: selected })} disabled={selected.length === 0}>
           <Trash2 size={15} />
         </button>
       </div>
@@ -361,7 +361,6 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
                 key={entry.path}
                 role="option"
                 aria-selected={isSelected}
-                title={entry.name}
                 className={`${COLUMNS} absolute left-0 right-0 cursor-default select-none items-center px-3 ${
                   isSelected ? "bg-accent/15" : "hover:bg-panel"
                 }`}
@@ -384,7 +383,9 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
               >
                 <span className="flex min-w-0 items-center gap-2">
                   <EntryIcon entry={entry} />
-                  <span className="truncate">{entry.name}</span>
+                  <span className="truncate" data-tooltip={entry.name} data-tooltip-overflow>
+                    {entry.name}
+                  </span>
                 </span>
                 <span className="text-right text-xs tabular-nums text-muted">
                   {isDir(entry) ? "" : formatBytes(entry.size)}
@@ -402,7 +403,7 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
 
       <div className="flex shrink-0 items-center justify-between border-t border-line px-3 py-1 text-xs text-muted">
         {error ? (
-          <span role="alert" className="truncate text-danger" title={error}>
+          <span role="alert" className="truncate text-danger" data-tooltip={error} data-tooltip-overflow>
             {error}
           </span>
         ) : (
