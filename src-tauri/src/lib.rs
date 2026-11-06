@@ -26,6 +26,8 @@ pub fn run() {
             commands::files::sftp_list,
             commands::files::sftp_mkdir,
             commands::files::sftp_rename,
+            commands::files::sftp_copy,
+            commands::files::sftp_rename_replacing,
             commands::files::sftp_remove,
             commands::files::sftp_chmod,
             commands::files::transfer_upload,

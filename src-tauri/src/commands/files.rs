@@ -83,6 +83,33 @@ pub async fn sftp_rename(
     fs.rename(&path, &new_name).await.map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn sftp_copy(
+    state: State<'_, AppState>,
+    session_id: Id,
+    path: String,
+    new_name: String,
+) -> Result<String, String> {
+    let fs = browser(&state, session_id).await?;
+    fs.copy_file(&path, &new_name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Renames, replacing a file that already has the new name.
+#[tauri::command]
+pub async fn sftp_rename_replacing(
+    state: State<'_, AppState>,
+    session_id: Id,
+    path: String,
+    new_name: String,
+) -> Result<String, String> {
+    let fs = browser(&state, session_id).await?;
+    fs.rename_replacing(&path, &new_name)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Stops at the first failure, reporting what was removed before it.
 #[tauri::command]
 pub async fn sftp_remove(

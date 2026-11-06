@@ -259,7 +259,7 @@ impl RemoteFs {
         }
         if let Err(error) = self.rename_over(&temporary, path).await {
             let _ = self.sftp.remove_file(&temporary).await;
-            return Err(error);
+            return Err(error.into());
         }
         Ok(())
     }
@@ -306,9 +306,14 @@ impl RemoteFs {
         Ok(())
     }
 
-    /// Plain SFTP renames refuse to replace an existing file on OpenSSH, so this uses OpenSSH's
-    /// `posix-rename` extension when there is one, and otherwise moves the original aside first.
-    async fn rename_over(&self, from: &str, to: &str) -> Result<(), EditError> {
+    /// Moves `from` onto `to`, replacing what is there. Plain SFTP renames refuse to replace an
+    /// existing file on OpenSSH, so this uses OpenSSH's `posix-rename` extension when there is one,
+    /// and otherwise moves the original aside first.
+    pub(crate) async fn rename_over(&self, from: &str, to: &str) -> Result<(), SftpError> {
+        let failed = |message: String| SftpError::Failed {
+            path: to.to_string(),
+            message,
+        };
         if let Some(extensions) = self.extensions().await
             && extensions.posix_rename
         {
@@ -321,23 +326,22 @@ impl RemoteFs {
                 .await
             {
                 Ok(Packet::Status(status)) if status.status_code == StatusCode::Ok => Ok(()),
-                Ok(Packet::Status(status)) => Err(EditError::Failed {
-                    message: format!("{to}：{}", status.error_message),
-                }),
-                Ok(_) => Err(EditError::Failed {
-                    message: format!("{to}：服务器返回了意外的响应"),
-                }),
-                Err(error) => Err(protocol(to)(error)),
+                Ok(Packet::Status(status)) => Err(failed(status.error_message)),
+                Ok(_) => Err(failed("服务器返回了意外的响应".into())),
+                Err(error) => Err(SftpError::from_protocol(to, error)),
             };
         }
 
         // Without the extension there is a moment with no file at `to`, but never a moment with
         // neither the old nor the new contents on disk.
         let backup = temporary_name(to, "bak");
-        self.sftp.rename(to, &backup).await.map_err(protocol(to))?;
+        self.sftp
+            .rename(to, &backup)
+            .await
+            .map_err(|e| SftpError::from_protocol(to, e))?;
         if let Err(error) = self.sftp.rename(from, to).await {
             let _ = self.sftp.rename(&backup, to).await;
-            return Err(protocol(to)(error));
+            return Err(SftpError::from_protocol(to, error));
         }
         let _ = self.sftp.remove_file(&backup).await;
         Ok(())

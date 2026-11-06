@@ -3,7 +3,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
+  ArchiveRestore,
   ArrowUp,
+  CopyPlus,
   Download,
   File,
   FilePen,
@@ -19,10 +21,12 @@ import {
 } from "lucide-react";
 import {
   sftpChmod,
+  sftpCopy,
   sftpList,
   sftpMkdir,
   sftpRemove,
   sftpRename,
+  sftpRenameReplacing,
   transferDownload,
   transferUpload,
   type RemoteEntry,
@@ -32,6 +36,7 @@ import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { ContextMenu } from "../../ui/ContextMenu";
 import { NameDialog } from "../../ui/NameDialog";
 import { compactInputClass, iconButton } from "../../ui/controls";
+import { backupName, restoredName } from "./backup";
 import { ChmodDialog } from "./ChmodDialog";
 import { emptySelection, moveFocus, prune, select, selectAll, type Selection } from "./selection";
 
@@ -44,6 +49,7 @@ type Dialog =
   | { kind: "rename"; entry: RemoteEntry }
   | { kind: "chmod"; entry: RemoteEntry }
   | { kind: "delete"; entries: RemoteEntry[] }
+  | { kind: "restore"; entry: RemoteEntry; name: string }
   | { kind: "overwrite"; localPaths: string[]; names: string[] };
 
 function isDir(entry: RemoteEntry) {
@@ -202,6 +208,39 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
     } catch (reason) {
       setError(String(reason));
     }
+  }
+
+  function selectOnly(path: string) {
+    setSelection({ selected: new Set([path]), anchor: path, focus: path });
+  }
+
+  async function backup(entry: RemoteEntry) {
+    try {
+      const target = await sftpCopy(sessionId, entry.path, backupName(entry.name, new Date()));
+      selectOnly(target);
+      onNotice(`已备份为 ${baseName(target)}`);
+    } catch (reason) {
+      setError(String(reason));
+    }
+    refresh();
+  }
+
+  /** Renames the backup back to `name`, replacing the file there. Throws so a dialog can show why. */
+  async function restore(entry: RemoteEntry, name: string) {
+    try {
+      selectOnly(await sftpRenameReplacing(sessionId, entry.path, name));
+      onNotice(`已还原 ${name}`);
+    } finally {
+      refresh();
+    }
+  }
+
+  /** Asks first when restoring would replace a file that is still there. */
+  function askRestore(entry: RemoteEntry) {
+    const name = restoredName(entry.name);
+    if (name === null) return;
+    if (entries.some((other) => other.name === name)) setDialog({ kind: "restore", entry, name });
+    else restore(entry, name).catch((reason) => setError(String(reason)));
   }
 
   function openEntry(entry: RemoteEntry) {
@@ -398,6 +437,16 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
               disabled: menu.entries.length !== 1,
               onSelect: () => setDialog({ kind: "rename", entry: menu.entries[0] }),
             },
+            {
+              label: "备份",
+              icon: <CopyPlus size={14} />,
+              disabled: menu.entries.length !== 1 || menu.entries[0].kind !== "file",
+              onSelect: () => void backup(menu.entries[0]),
+            },
+            // Offered only on backups, named as backup() names them.
+            ...(menu.entries.length === 1 && menu.entries[0].kind === "file" && restoredName(menu.entries[0].name)
+              ? [{ label: "还原", icon: <ArchiveRestore size={14} />, onSelect: () => askRestore(menu.entries[0]) }]
+              : []),
           ]}
         />
       )}
@@ -454,6 +503,15 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
               refresh();
             }
           }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "restore" && (
+        <ConfirmDialog
+          title="还原备份"
+          message={`将用“${dialog.entry.name}”替换当前的“${dialog.name}”，备份文件会改回原名。当前的“${dialog.name}”会被覆盖，此操作无法撤销。`}
+          confirmLabel="还原"
+          onConfirm={() => restore(dialog.entry, dialog.name)}
           onClose={() => setDialog(null)}
         />
       )}

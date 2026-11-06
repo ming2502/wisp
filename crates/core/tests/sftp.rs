@@ -122,6 +122,61 @@ async fn browses_and_changes_remote_files() {
 }
 
 #[tokio::test]
+async fn copies_a_file_aside_and_restores_it_over_the_original() {
+    let Some(server) = RealServer::start().await else {
+        return;
+    };
+    let fs = server.session.open_sftp().await.unwrap();
+    let (local, remote) = server.workspace("backup");
+    random_file(&local.join("app.conf"), 600 * 1024);
+    std::fs::set_permissions(local.join("app.conf"), PermissionsExt::from_mode(0o600)).unwrap();
+    let original = format!("{remote}/app.conf");
+
+    let backup = fs
+        .copy_file(&original, "app.conf.bak202611051230")
+        .await
+        .unwrap();
+    assert!(same_contents(
+        &local.join("app.conf"),
+        &local.join("app.conf.bak202611051230")
+    ));
+    let mode = std::fs::metadata(local.join("app.conf.bak202611051230"))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(
+        mode & 0o777,
+        0o600,
+        "a copy of a private file stays private"
+    );
+    assert!(
+        fs.copy_file(&original, "app.conf.bak202611051230")
+            .await
+            .is_err(),
+        "an existing backup is never overwritten"
+    );
+    assert!(fs.copy_file(&remote, "dir-copy").await.is_err());
+
+    let saved = std::fs::read(local.join("app.conf.bak202611051230")).unwrap();
+    std::fs::write(local.join("app.conf"), "changed").unwrap();
+    let restored = fs.rename_replacing(&backup, "app.conf").await.unwrap();
+    assert_eq!(restored, original);
+    assert_eq!(std::fs::read(local.join("app.conf")).unwrap(), saved);
+    assert!(!local.join("app.conf.bak202611051230").exists());
+
+    // Restoring also works once the original is gone, and never replaces a directory.
+    fs.copy_file(&original, "app.conf.bak1").await.unwrap();
+    std::fs::remove_file(local.join("app.conf")).unwrap();
+    fs.rename_replacing(&format!("{remote}/app.conf.bak1"), "app.conf")
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read(local.join("app.conf")).unwrap(), saved);
+    std::fs::create_dir(local.join("d")).unwrap();
+    assert!(fs.rename_replacing(&original, "d").await.is_err());
+    assert!(local.join("app.conf").exists());
+}
+
+#[tokio::test]
 async fn upload_and_download_round_trip() {
     let Some(server) = RealServer::start().await else {
         return;

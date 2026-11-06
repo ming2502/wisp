@@ -212,6 +212,15 @@ export function sftpRename(sessionId: number, path: string, newName: string): Pr
   return invoke("sftp_rename", { sessionId, path, newName });
 }
 
+export function sftpCopy(sessionId: number, path: string, newName: string): Promise<string> {
+  return invoke("sftp_copy", { sessionId, path, newName });
+}
+
+/** Renames, replacing a file that already has the new name. */
+export function sftpRenameReplacing(sessionId: number, path: string, newName: string): Promise<string> {
+  return invoke("sftp_rename_replacing", { sessionId, path, newName });
+}
+
 export function sftpRemove(sessionId: number, paths: string[]): Promise<void> {
   return invoke("sftp_remove", { sessionId, paths });
 }

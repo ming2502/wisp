@@ -10,8 +10,9 @@ use std::sync::Arc;
 use russh::client::Handle;
 use russh_sftp::client::error::Error as SftpProtocolError;
 use russh_sftp::client::{Config, RawSftpSession, SftpSession};
-use russh_sftp::protocol::{FileAttributes, StatusCode};
+use russh_sftp::protocol::{FileAttributes, OpenFlags, StatusCode};
 use serde::Serialize;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::connection::{ClientHandler, Session};
 
@@ -23,6 +24,8 @@ const REQUEST_TIMEOUT_SECS: u64 = 30;
 /// 2 MiB channel window that OpenSSH servers grant, where the defaults would fill only 512 KiB.
 const WRITE_PACKET_BYTES: u32 = 64 * 1024;
 const CONCURRENT_WRITES: usize = 32;
+/// Each read is a round trip, so copies read in large pieces.
+const COPY_BUFFER_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SftpError {
@@ -318,6 +321,97 @@ impl RemoteFs {
             .await
             .map_err(|e| SftpError::from_protocol(path, e))?;
         Ok(target)
+    }
+
+    /// Copies a file to `new_name` in the same directory with the same permissions, so that a copy
+    /// of a private file stays private. Refuses to replace an existing entry.
+    pub async fn copy_file(&self, path: &str, new_name: &str) -> Result<String, SftpError> {
+        validate_name(new_name)?;
+        let target = join(&parent(path), new_name);
+        let source = self
+            .sftp
+            .metadata(path)
+            .await
+            .map_err(|e| SftpError::from_protocol(path, e))?;
+        if !source.is_regular() {
+            return Err(SftpError::Failed {
+                path: path.to_string(),
+                message: "只能复制普通文件".into(),
+            });
+        }
+        if self.exists(&target).await? {
+            return Err(SftpError::Failed {
+                path: target,
+                message: "已存在同名文件或目录".into(),
+            });
+        }
+        let mut reader = self
+            .sftp
+            .open(path)
+            .await
+            .map_err(|e| SftpError::from_protocol(path, e))?;
+        let attributes = FileAttributes {
+            permissions: source.permissions.map(|mode| mode & 0o7777),
+            ..FileAttributes::empty()
+        };
+        let mut writer = self
+            .sftp
+            .open_with_flags_and_attributes(
+                &target,
+                OpenFlags::CREATE | OpenFlags::EXCLUDE | OpenFlags::WRITE,
+                attributes,
+            )
+            .await
+            .map_err(|e| SftpError::from_protocol(&target, e))?;
+        let copied = async {
+            let mut buffer = vec![0; COPY_BUFFER_BYTES];
+            loop {
+                let read = reader.read(&mut buffer).await?;
+                if read == 0 {
+                    break;
+                }
+                writer.write_all(&buffer[..read]).await?;
+            }
+            writer.shutdown().await
+        };
+        if let Err(error) = copied.await {
+            let _ = self.sftp.remove_file(&target).await;
+            return Err(SftpError::Failed {
+                path: target,
+                message: error.to_string(),
+            });
+        }
+        Ok(target)
+    }
+
+    /// Renames within the same directory, replacing a file already called `new_name`. A directory
+    /// of that name is left alone.
+    pub async fn rename_replacing(&self, path: &str, new_name: &str) -> Result<String, SftpError> {
+        validate_name(new_name)?;
+        let target = join(&parent(path), new_name);
+        if target == path {
+            return Ok(target);
+        }
+        match self.sftp.symlink_metadata(&target).await {
+            Ok(existing) if existing.is_dir() => Err(SftpError::Failed {
+                path: target,
+                message: "已存在同名目录".into(),
+            }),
+            Ok(_) => {
+                self.rename_over(path, &target).await?;
+                Ok(target)
+            }
+            Err(SftpProtocolError::Status(status))
+                if status.status_code == StatusCode::NoSuchFile =>
+            {
+                self.sftp
+                    .rename(path, &target)
+                    .await
+                    .map_err(|e| SftpError::from_protocol(path, e))?;
+                Ok(target)
+            }
+            Err(e) => Err(SftpError::from_protocol(&target, e)),
+        }
     }
 
     pub async fn chmod(&self, path: &str, mode: u32) -> Result<(), SftpError> {
