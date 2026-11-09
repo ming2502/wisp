@@ -27,13 +27,13 @@ import { createSpeedTracker } from "../features/transfers/speed";
 import { CommandPalette, type PaletteAction } from "../features/palette/CommandPalette";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { useSettings } from "../features/settings/SettingsContext";
-import { Notes } from "../features/updates/Notes";
+import { UpdateDialog } from "../features/updates/UpdateDialog";
+import { UpdateNotice } from "../features/updates/UpdateNotice";
 import { useUpdater } from "../features/updates/useUpdater";
 import { WhatsNew } from "../features/updates/WhatsNew";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { button, iconButton, primaryButton, secondaryButton } from "../ui/controls";
+import { button, iconButton } from "../ui/controls";
 import { Logo } from "../ui/Logo";
-import { Modal } from "../ui/Modal";
 import { isShortcut, shortcutLabel } from "../lib/platform";
 import {
   groupDelete,
@@ -355,14 +355,14 @@ export default function App() {
             />
           )}
         </div>
-        {updater.status.kind === "available" && (
+        {updater.update && updater.status.kind !== "installing" && (
           <button
             type="button"
             className="mx-2 mb-2 flex items-center gap-2 rounded-md border border-accent/30 bg-accent/10 px-2.5 py-2 text-left text-xs text-accent transition-colors duration-150 hover:bg-accent/15"
             onClick={() => setDialog({ kind: "update" })}
           >
             <Download size={14} className="shrink-0" />
-            新版本 {updater.status.update.version} 可用，点击查看
+            新版本 {updater.update.version} 可用，点击查看
           </button>
         )}
         <div className="flex shrink-0 items-center justify-between border-t border-line px-2 py-1.5">
@@ -566,36 +566,12 @@ export default function App() {
           onClose={close}
         />
       )}
-      {dialog?.kind === "settings" && <SettingsDialog onClose={close} updater={updater} />}
-      <WhatsNew />
-      {dialog?.kind === "update" && (updater.status.kind === "available" || updater.status.kind === "installing") && (
-        <Modal title="安装更新" open onClose={close} modal={updater.status.kind === "installing"}>
-          {updater.status.kind === "available" ? (
-            <>
-              <p className="text-sm">
-                wisp {updater.status.update.version} 已发布。安装后应用会自动重启，所有连接会断开。
-              </p>
-              {updater.status.update.body && (
-                <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-line bg-canvas p-3">
-                  <p className="mb-2 text-xs font-medium text-muted">更新内容</p>
-                  <Notes markdown={updater.status.update.body} />
-                </div>
-              )}
-              {hasUnsaved && <p className="mt-3 text-sm text-danger">有文件尚未保存，重启后这些修改会丢失。</p>}
-              <div className="mt-5 flex justify-end gap-2">
-                <button type="button" className={secondaryButton} onClick={close}>
-                  稍后
-                </button>
-                <button type="button" className={primaryButton} onClick={() => void updater.install()}>
-                  {hasUnsaved ? "不保存，安装并重启" : "安装并重启"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted">正在下载并安装，完成后会自动重启…</p>
-          )}
-        </Modal>
+      {dialog?.kind === "settings" && (
+        <SettingsDialog onClose={close} updater={updater} onOpenUpdate={() => setDialog({ kind: "update" })} />
       )}
+      <WhatsNew />
+      {dialog?.kind === "update" && <UpdateDialog updater={updater} hasUnsaved={hasUnsaved} onClose={close} />}
+      <UpdateNotice updater={updater} onOpen={() => setDialog({ kind: "update" })} />
       {dialog?.kind === "editHost" && (
         <HostEditor
           host={dialog.host}

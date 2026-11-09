@@ -366,3 +366,8 @@ export interface PickOptions {
 export function pickPaths(options: PickOptions): Promise<string[]> {
   return invoke("pick_paths", { options });
 }
+
+/** Opens the release page of a version in the browser, for installing by hand. */
+export function openReleasePage(version: string): Promise<void> {
+  return invoke("open_release_page", { version });
+}

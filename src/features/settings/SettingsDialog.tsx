@@ -33,7 +33,7 @@ function updateText(updater: Updater) {
     case "upToDate":
       return "已是最新版本";
     case "available":
-      return `有新版本 ${status.update.version}`;
+      return "";
     case "installing":
       return `正在下载 ${formatBytes(status.downloaded)}${status.total ? ` / ${formatBytes(status.total)}` : ""}`;
     case "error":
@@ -67,7 +67,14 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   );
 }
 
-export function SettingsDialog({ onClose, updater }: { onClose: () => void; updater: Updater }) {
+interface Props {
+  onClose: () => void;
+  updater: Updater;
+  /** Opens the update window, once a check has found an update. */
+  onOpenUpdate: () => void;
+}
+
+export function SettingsDialog({ onClose, updater, onOpenUpdate }: Props) {
   const { settings, update } = useSettings();
   const [version, setVersion] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
@@ -190,7 +197,7 @@ export function SettingsDialog({ onClose, updater }: { onClose: () => void; upda
 
         <Section title="关于">
           <div className="flex min-h-11 items-center justify-between gap-4 px-3 py-1.5 text-sm">
-            <span className="min-w-0">
+            <span className="shrink-0 whitespace-nowrap">
               版本 <span className="tabular-nums">{version && `v${version}`}</span>
             </span>
             <span className="flex min-w-0 items-center gap-3">
@@ -200,14 +207,21 @@ export function SettingsDialog({ onClose, updater }: { onClose: () => void; upda
               >
                 {updateText(updater)}
               </span>
-              <button
-                type="button"
-                className="shrink-0 text-xs font-medium text-accent transition-colors duration-150 hover:text-accent-hover hover:underline disabled:pointer-events-none disabled:opacity-50"
-                disabled={busy}
-                onClick={updater.checkNow}
-              >
-                检查更新
-              </button>
+              {/* Once an update is found, the button offers it instead of checking again. */}
+              {updater.update ? (
+                <button type="button" className={`${button("primary", "sm")} shrink-0`} onClick={onOpenUpdate}>
+                  更新到 {updater.update.version}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="shrink-0 text-xs font-medium text-accent transition-colors duration-150 hover:text-accent-hover hover:underline disabled:pointer-events-none disabled:opacity-50"
+                  disabled={busy}
+                  onClick={updater.checkNow}
+                >
+                  检查更新
+                </button>
+              )}
             </span>
           </div>
           {notes && (

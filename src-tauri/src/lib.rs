@@ -20,6 +20,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::core_version,
             commands::app_ready,
+            commands::open_release_page,
             commands::connection::ssh_connect,
             commands::editor::editor_open,
             commands::editor::editor_save,
