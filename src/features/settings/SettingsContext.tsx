@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { settingsLoad, settingsSave } from "../../ipc";
+import { setTitleBarTheme, settingsLoad, settingsSave } from "../../ipc";
 import { DEFAULT_SETTINGS, normalizeSettings, type Settings } from "./settings";
 
 const SAVE_DELAY_MS = 300;
@@ -44,6 +44,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
+    void setTitleBarTheme(dark).catch(() => {});
   }, [dark]);
 
   const update = useCallback((change: (current: Settings) => Settings) => {

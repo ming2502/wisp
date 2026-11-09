@@ -5,6 +5,7 @@ pub mod hosts;
 pub mod picker;
 pub mod settings;
 pub mod terminal;
+pub mod title_bar;
 
 use std::sync::OnceLock;
 use std::time::Instant;

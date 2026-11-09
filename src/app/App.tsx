@@ -33,7 +33,7 @@ import { WhatsNew } from "../features/updates/WhatsNew";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { button, iconButton } from "../ui/controls";
 import { Logo } from "../ui/Logo";
-import { isShortcut, shortcutLabel } from "../lib/platform";
+import { isMac, isShortcut, shortcutLabel } from "../lib/platform";
 import {
   groupDelete,
   hostDelete,
@@ -326,7 +326,8 @@ export default function App() {
   return (
     <div className="flex h-screen">
       <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-panel">
-        <div data-tauri-drag-region className="h-10 shrink-0" />
+        {/* Room for the traffic lights, which sit over the app on macOS. Windows has a title bar. */}
+        {isMac && <div data-tauri-drag-region className="h-10 shrink-0" />}
         <div className="min-h-0 flex-1">
           {loadError ? (
             <p role="alert" className="p-4 text-sm text-danger">

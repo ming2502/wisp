@@ -15,12 +15,16 @@ pub fn run() {
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
             *app.state::<state::AppState>().config_dir.lock().unwrap() = Some(dir);
+            if let Some(window) = app.get_webview_window("main") {
+                commands::title_bar::hide_title_text(&window);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::core_version,
             commands::app_ready,
             commands::open_release_page,
+            commands::title_bar::set_title_bar_theme,
             commands::connection::ssh_connect,
             commands::editor::editor_open,
             commands::editor::editor_save,

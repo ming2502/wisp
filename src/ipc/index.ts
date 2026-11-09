@@ -371,3 +371,8 @@ export function pickPaths(options: PickOptions): Promise<string[]> {
 export function openReleasePage(version: string): Promise<void> {
   return invoke("open_release_page", { version });
 }
+
+/** Paints the Windows title bar like the app in the light or dark theme; elsewhere it does nothing. */
+export function setTitleBarTheme(dark: boolean): Promise<void> {
+  return invoke("set_title_bar_theme", { dark });
+}

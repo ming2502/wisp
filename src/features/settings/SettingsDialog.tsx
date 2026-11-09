@@ -194,7 +194,7 @@ export function SettingsDialog({ onClose, updater, onOpenUpdate }: Props) {
         <Section title="关于">
           <div className="flex min-h-11 items-center justify-between gap-4 px-3 py-1.5 text-sm">
             <span className="shrink-0 whitespace-nowrap">
-              版本 <span className="tabular-nums">{version && `v${version}`}</span>
+              wisp <span className="tabular-nums">{version && `v${version}`}</span>
             </span>
             <span className="flex min-w-0 items-center gap-3">
               <span
