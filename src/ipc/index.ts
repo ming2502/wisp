@@ -217,8 +217,22 @@ export function sftpRename(sessionId: number, path: string, newName: string): Pr
   return invoke("sftp_rename", { sessionId, path, newName });
 }
 
-export function sftpCopy(sessionId: number, path: string, newName: string): Promise<string> {
-  return invoke("sftp_copy", { sessionId, path, newName });
+export interface CopyProgress {
+  done: number;
+  size: number;
+}
+
+/** Copies a file within its directory, replacing an existing copy only when `replace` is set. */
+export function sftpCopy(
+  sessionId: number,
+  path: string,
+  newName: string,
+  replace: boolean,
+  onProgress: (progress: CopyProgress) => void,
+): Promise<string> {
+  const channel = new Channel<CopyProgress>();
+  channel.onmessage = onProgress;
+  return invoke("sftp_copy", { sessionId, path, newName, replace, onProgress: channel });
 }
 
 /** Renames, replacing a file that already has the new name. */
@@ -338,4 +352,17 @@ export function settingsSave(settings: unknown): Promise<void> {
 /** Lets the backend report startup time when asked to through `WISP_TIMING`. */
 export function appReady(): Promise<void> {
   return invoke("app_ready");
+}
+
+export interface PickOptions {
+  /** Folders instead of files. */
+  folders: boolean;
+  multiple: boolean;
+  title: string;
+  defaultPath?: string;
+}
+
+/** Shows a file or folder picker centred over the window. Empty when cancelled. */
+export function pickPaths(options: PickOptions): Promise<string[]> {
+  return invoke("pick_paths", { options });
 }

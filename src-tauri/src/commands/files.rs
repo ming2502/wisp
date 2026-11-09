@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::ipc::Channel;
@@ -9,6 +10,8 @@ use wisp_core::sftp::{RemoteEntry, RemoteFs};
 use wisp_core::transfer::{Enqueued, TransferId, TransferInfo, TransferState};
 
 use crate::state::{AppState, Id};
+
+const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 
 async fn open_fs(
     state: &AppState,
@@ -83,15 +86,34 @@ pub async fn sftp_rename(
     fs.rename(&path, &new_name).await.map_err(|e| e.to_string())
 }
 
+#[derive(Clone, Serialize)]
+pub struct CopyProgress {
+    done: u64,
+    size: u64,
+}
+
+/// Copies a file within its directory, replacing an existing copy only when `replace` is set.
+/// Progress is sent at most every 100 ms, and always at the start and the end.
 #[tauri::command]
 pub async fn sftp_copy(
     state: State<'_, AppState>,
     session_id: Id,
     path: String,
     new_name: String,
+    replace: bool,
+    on_progress: Channel<CopyProgress>,
 ) -> Result<String, String> {
     let fs = browser(&state, session_id).await?;
-    fs.copy_file(&path, &new_name)
+    let last = Mutex::new(None::<Instant>);
+    let progress = |done: u64, size: u64| {
+        let mut last = last.lock().unwrap();
+        let due = last.is_none_or(|at| at.elapsed() >= PROGRESS_INTERVAL);
+        if due || done == size {
+            *last = Some(Instant::now());
+            let _ = on_progress.send(CopyProgress { done, size });
+        }
+    };
+    fs.copy_file(&path, &new_name, replace, progress)
         .await
         .map_err(|e| e.to_string())
 }

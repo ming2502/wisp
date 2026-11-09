@@ -2,17 +2,22 @@ import { describe, expect, it } from "vitest";
 import { backupName, restoredName } from "./backup";
 
 describe("backups", () => {
-  it("stamps the name with the local minute", () => {
-    expect(backupName("nginx.conf", new Date(2026, 0, 5, 9, 7, 59))).toBe("nginx.conf.bak202601050907");
+  it("dates the name with the local day", () => {
+    expect(backupName("nginx.conf", new Date(2026, 10, 9, 23, 59))).toBe("nginx.conf.bak.261109");
+    expect(backupName("a", new Date(2030, 0, 5))).toBe("a.bak.300105");
   });
 
-  it("restores to the name before the stamp", () => {
+  it("restores to the name before the date", () => {
+    expect(restoredName("nginx.conf.bak.261109")).toBe("nginx.conf");
+    expect(restoredName(backupName("a.bak.260101", new Date()))).toBe("a.bak.260101");
+  });
+
+  it("still restores backups named the earlier way", () => {
     expect(restoredName("nginx.conf.bak202601050907")).toBe("nginx.conf");
-    expect(restoredName(backupName("a.bak202601010000", new Date()))).toBe("a.bak202601010000");
   });
 
   it("ignores names that are not backups", () => {
-    for (const name of ["nginx.conf", "a.bak", "a.bak2026", "a.bak2026010509071", ".bak202601050907", "a.bak20260105090x"]) {
+    for (const name of ["nginx.conf", "a.bak", "a.bak.2611", "a.bak.2611091", ".bak.261109", "a.bak.26110x", "a.bak261109"]) {
       expect(restoredName(name)).toBeNull();
     }
   });

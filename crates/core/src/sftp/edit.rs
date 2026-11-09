@@ -149,12 +149,12 @@ pub(crate) fn encode(content: &str, format: TextFormat) -> Vec<u8> {
 }
 
 /// SSH wire encoding of a string: a big-endian length, then the bytes.
-fn ssh_string(out: &mut Vec<u8>, value: &str) {
+pub(super) fn ssh_string(out: &mut Vec<u8>, value: &str) {
     out.extend_from_slice(&(value.len() as u32).to_be_bytes());
     out.extend_from_slice(value.as_bytes());
 }
 
-fn temporary_name(path: &str, purpose: &str) -> String {
+pub(super) fn temporary_name(path: &str, purpose: &str) -> String {
     let unique = uuid::Uuid::new_v4().simple().to_string();
     join(
         &parent(path),

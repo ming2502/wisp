@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   ArchiveRestore,
@@ -20,6 +19,7 @@ import {
   Upload,
 } from "lucide-react";
 import {
+  pickPaths,
   sftpChmod,
   sftpCopy,
   sftpList,
@@ -50,6 +50,7 @@ type Dialog =
   | { kind: "chmod"; entry: RemoteEntry }
   | { kind: "delete"; entries: RemoteEntry[] }
   | { kind: "restore"; entry: RemoteEntry; name: string }
+  | { kind: "replaceBackup"; entry: RemoteEntry; name: string }
   | { kind: "overwrite"; localPaths: string[]; names: string[] };
 
 function isDir(entry: RemoteEntry) {
@@ -64,6 +65,22 @@ function EntryIcon({ entry }: { entry: RemoteEntry }) {
   if (entry.kind === "symlink") return <FileSymlink size={15} className="shrink-0 text-muted" />;
   if (isDir(entry)) return <Folder size={15} className="shrink-0 text-accent" />;
   return <File size={15} className="shrink-0 text-muted" />;
+}
+
+/** The running backup, with a bar, in the status bar. */
+function CopyStatus({ name, done, size }: { name: string; done: number; size: number }) {
+  const percent = size > 0 ? Math.min(100, Math.round((done / size) * 100)) : 100;
+  return (
+    <span role="status" className="flex min-w-0 items-center gap-2">
+      <span className="truncate">正在备份 {name}</span>
+      <span className="h-1.5 w-28 shrink-0 overflow-hidden rounded-full bg-line">
+        <span className="block h-full rounded-full bg-accent transition-[width] duration-150" style={{ width: `${percent}%` }} />
+      </span>
+      <span className="shrink-0 tabular-nums">
+        {percent}% · {formatBytes(done)} / {formatBytes(size)}
+      </span>
+    </span>
+  );
 }
 
 interface Props {
@@ -82,6 +99,7 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [copying, setCopying] = useState<{ name: string; done: number; size: number } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; entries: RemoteEntry[] } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const scroller = useRef<HTMLDivElement>(null);
@@ -181,8 +199,12 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
   }, [active]);
 
   async function pickAndUpload(directory: boolean) {
-    const picked = await openDialog({ multiple: true, directory, title: directory ? "选择要上传的文件夹" : "选择要上传的文件" });
-    if (picked) void upload(Array.isArray(picked) ? picked : [picked]);
+    const picked = await pickPaths({
+      folders: directory,
+      multiple: true,
+      title: directory ? "选择要上传的文件夹" : "选择要上传的文件",
+    });
+    if (picked.length > 0) void upload(picked);
   }
 
   async function download(items: RemoteEntry[]) {
@@ -193,8 +215,8 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
     } catch {
       remembered = undefined;
     }
-    const dir = await openDialog({ directory: true, title: "选择保存位置", defaultPath: remembered });
-    if (typeof dir !== "string") return;
+    const [dir] = await pickPaths({ folders: true, multiple: false, title: "选择保存位置", defaultPath: remembered });
+    if (!dir) return;
     try {
       localStorage.setItem(DOWNLOAD_DIR_KEY, dir);
     } catch {
@@ -214,13 +236,24 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
     setSelection({ selected: new Set([path]), anchor: path, focus: path });
   }
 
-  async function backup(entry: RemoteEntry) {
+  /** Copies the file to today's backup name, asking first when today's backup already exists. */
+  async function backup(entry: RemoteEntry, replace = false) {
+    const name = backupName(entry.name, new Date());
+    if (!replace && entries.some((other) => other.name === name)) {
+      setDialog({ kind: "replaceBackup", entry, name });
+      return;
+    }
+    setCopying({ name: entry.name, done: 0, size: entry.size });
     try {
-      const target = await sftpCopy(sessionId, entry.path, backupName(entry.name, new Date()));
+      const target = await sftpCopy(sessionId, entry.path, name, replace, ({ done, size }) =>
+        setCopying({ name: entry.name, done, size }),
+      );
       selectOnly(target);
       onNotice(`已备份为 ${baseName(target)}`);
     } catch (reason) {
       setError(String(reason));
+    } finally {
+      setCopying(null);
     }
     refresh();
   }
@@ -411,6 +444,7 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
             {entries.length} 项{selected.length > 0 && `，已选 ${selected.length} 项`}
           </span>
         )}
+        {copying && <CopyStatus {...copying} />}
       </div>
 
       {dragging && (
@@ -441,7 +475,8 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
             {
               label: "备份",
               icon: <CopyPlus size={14} />,
-              disabled: menu.entries.length !== 1 || menu.entries[0].kind !== "file",
+              // One backup at a time, so the status bar can show its progress.
+              disabled: menu.entries.length !== 1 || menu.entries[0].kind !== "file" || copying !== null,
               onSelect: () => void backup(menu.entries[0]),
             },
             // Offered only on backups, named as backup() names them.
@@ -513,6 +548,15 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
           message={`将用“${dialog.entry.name}”替换当前的“${dialog.name}”，备份文件会改回原名。当前的“${dialog.name}”会被覆盖，此操作无法撤销。`}
           confirmLabel="还原"
           onConfirm={() => restore(dialog.entry, dialog.name)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === "replaceBackup" && (
+        <ConfirmDialog
+          title="覆盖今天的备份"
+          message={`今天已经备份过，“${dialog.name}”已存在。要用“${dialog.entry.name}”的当前内容覆盖这个备份吗？`}
+          confirmLabel="覆盖"
+          onConfirm={async () => void backup(dialog.entry, true)}
           onClose={() => setDialog(null)}
         />
       )}

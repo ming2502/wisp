@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 keyring = { version = "3.6", features = ["apple-native", "windows-native"] }
 log = "0.4"
 # ring avoids the NASM and CMake build requirements of the default aws-lc-rs backend on Windows.

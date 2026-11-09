@@ -6282,6 +6282,10 @@ dependencies = [
 name = "wisp"
 version = "0.3.3"
 dependencies = [
+ "dispatch2",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "serde",
  "serde_json",
  "tauri",
@@ -6291,6 +6295,8 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "tokio",
+ "windows",
+ "windows-core",
  "wisp-core",
  "zeroize",
 ]
@@ -6299,6 +6305,7 @@ dependencies = [
 name = "wisp-core"
 version = "0.3.3"
 dependencies = [
+ "futures-util",
  "keyring",
  "log",
  "rand",

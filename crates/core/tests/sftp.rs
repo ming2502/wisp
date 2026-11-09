@@ -128,46 +128,81 @@ async fn copies_a_file_aside_and_restores_it_over_the_original() {
     };
     let fs = server.session.open_sftp().await.unwrap();
     let (local, remote) = server.workspace("backup");
-    random_file(&local.join("app.conf"), 600 * 1024);
+    // Over a piece boundary, so both the server copy and the piped copy take several requests.
+    random_file(&local.join("app.conf"), 3 * 1024 * 1024 + 123);
     std::fs::set_permissions(local.join("app.conf"), PermissionsExt::from_mode(0o600)).unwrap();
     let original = format!("{remote}/app.conf");
+    let none = |_: u64, _: u64| {};
 
-    let backup = fs
-        .copy_file(&original, "app.conf.bak202611051230")
-        .await
-        .unwrap();
-    assert!(same_contents(
-        &local.join("app.conf"),
-        &local.join("app.conf.bak202611051230")
-    ));
-    let mode = std::fs::metadata(local.join("app.conf.bak202611051230"))
+    for (name, through_client) in [("app.conf.bak.261105", false), ("piped", true)] {
+        let reported = std::sync::Mutex::new(Vec::new());
+        let progress = |done: u64, size: u64| reported.lock().unwrap().push((done, size));
+        let copied = if through_client {
+            fs.copy_file_through_client(&original, name, false, progress)
+                .await
+        } else {
+            fs.copy_file(&original, name, false, progress).await
+        };
+        assert_eq!(copied.unwrap(), format!("{remote}/{name}"));
+        assert!(
+            same_contents(&local.join("app.conf"), &local.join(name)),
+            "{name}"
+        );
+        let mode = std::fs::metadata(local.join(name))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(
+            mode & 0o777,
+            0o600,
+            "a copy of a private file stays private"
+        );
+        let reported = reported.into_inner().unwrap();
+        let size = 3 * 1024 * 1024 + 123;
+        assert_eq!(reported.first(), Some(&(0, size)));
+        assert_eq!(reported.last(), Some(&(size, size)), "{name}");
+    }
+    let leftovers: Vec<_> = std::fs::read_dir(&local)
         .unwrap()
-        .permissions()
-        .mode();
-    assert_eq!(
-        mode & 0o777,
-        0o600,
-        "a copy of a private file stays private"
-    );
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.contains("wisp-"))
+        .collect();
+    assert!(leftovers.is_empty(), "{leftovers:?}");
+
+    let backup = format!("{remote}/app.conf.bak.261105");
     assert!(
-        fs.copy_file(&original, "app.conf.bak202611051230")
+        fs.copy_file(&original, "app.conf.bak.261105", false, none)
             .await
             .is_err(),
-        "an existing backup is never overwritten"
+        "an existing backup is replaced only when asked"
     );
-    assert!(fs.copy_file(&remote, "dir-copy").await.is_err());
+    std::fs::write(local.join("app.conf"), "newer").unwrap();
+    fs.copy_file(&original, "app.conf.bak.261105", true, none)
+        .await
+        .unwrap();
+    assert_eq!(
+        std::fs::read(local.join("app.conf.bak.261105")).unwrap(),
+        b"newer"
+    );
+    assert!(
+        fs.copy_file(&remote, "dir-copy", false, none)
+            .await
+            .is_err()
+    );
 
-    let saved = std::fs::read(local.join("app.conf.bak202611051230")).unwrap();
+    let saved = std::fs::read(local.join("app.conf.bak.261105")).unwrap();
     std::fs::write(local.join("app.conf"), "changed").unwrap();
     let restored = fs.rename_replacing(&backup, "app.conf").await.unwrap();
     assert_eq!(restored, original);
     assert_eq!(std::fs::read(local.join("app.conf")).unwrap(), saved);
-    assert!(!local.join("app.conf.bak202611051230").exists());
+    assert!(!local.join("app.conf.bak.261105").exists());
 
     // Restoring also works once the original is gone, and never replaces a directory.
-    fs.copy_file(&original, "app.conf.bak1").await.unwrap();
+    fs.copy_file(&original, "app.conf.bak.1", false, none)
+        .await
+        .unwrap();
     std::fs::remove_file(local.join("app.conf")).unwrap();
-    fs.rename_replacing(&format!("{remote}/app.conf.bak1"), "app.conf")
+    fs.rename_replacing(&format!("{remote}/app.conf.bak.1"), "app.conf")
         .await
         .unwrap();
     assert_eq!(std::fs::read(local.join("app.conf")).unwrap(), saved);

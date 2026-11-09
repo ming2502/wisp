@@ -38,6 +38,7 @@ pub fn run() {
             commands::files::transfers_clear,
             commands::files::transfers_subscribe,
             commands::hosts::hosts_list,
+            commands::picker::pick_paths,
             commands::hosts::host_save,
             commands::hosts::host_delete,
             commands::hosts::host_move,
