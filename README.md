@@ -73,7 +73,7 @@ CI=true pnpm tauri build
 
 ## 发布
 
-推送形如 `v0.2.0` 的标签后，GitHub Actions 会构建 macOS（Universal）和 Windows 安装包，以及签名的更新清单 `latest.json`，并创建一个草稿 Release。草稿发布后，已安装的用户就会收到这次更新。
+发布由 `pnpm release` 脚本和 `.github/workflows/release.yml` 完成：脚本改好版本号和更新日志并推送标签，工作流构建 macOS（Universal）和 Windows 安装包、签名的更新包和更新清单 `latest.json`，全部成功后自动发布。发布后，已安装的用户就会收到这次更新，并在更新窗口里看到这个版本的更新内容。
 
 ### 首次配置（只需一次）
 
@@ -90,14 +90,23 @@ CI=true pnpm tauri build
 
 ### 每次发布
 
-1. 修改根目录 `Cargo.toml` 中 `[workspace.package]` 的 `version`，这是唯一的版本号来源。
-2. 提交后打标签并推送：
+1. 平时把改动写进 [CHANGELOG.md](CHANGELOG.md) 的 `## [Unreleased]` 一节，随代码一起提交。这一节就是 GitHub Release 的说明和用户在应用里看到的更新内容，请写给用户看。
+2. 在 main 分支上运行：
 
    ```bash
-   git tag v0.2.0 && git push origin v0.2.0
+   pnpm release 0.4.0
    ```
 
-3. 等工作流完成后，检查草稿 Release 中的安装包，然后点击发布。
+   不带版本号时脚本会询问。它会依次：
+   - 检查：在 main 分支、没有未提交的修改、不落后于远端、版本号比当前新、标签还不存在、`Unreleased` 一节不是空的。
+   - 修改：`Cargo.toml` 与 `package.json` 的版本号，把 `## [Unreleased]` 改成 `## [0.4.0] - 今天的日期` 并在上面留一个新的空 `Unreleased`，更新 `Cargo.lock`。
+   - 本地检查：类型检查、前端测试、Rust 格式、lint 和测试。任何一步失败都会还原所有修改。
+   - 显示要改的文件和这个版本的更新说明，**确认后**提交 `Release v0.4.0`、打标签并推送。
+3. 工作流开始构建，脚本最后给出进度和发布页面的链接。两个平台都成功后，工作流自动发布 Release；任何一步失败都会留下草稿、不发布，修好后删除标签和草稿重新来过。
+
+选项：`--dry-run` 只显示会改什么；`--no-push` 只在本地提交和打标签；`--no-checks` 跳过本地检查；`--yes` 不再询问。版本号可以带预发布后缀（`0.4.0-beta.1`），发布为预发布版本，不推送给自动更新。
+
+应用内的更新内容：发现新版本时，更新窗口列出新版本的改动（来自更新清单）；更新后首次打开，会显示一次「本次更新」；「设置 → 关于 → 本版本更新内容」可以随时查看（来自打包进应用的 `CHANGELOG.md`）。
 
 ## 许可证
 

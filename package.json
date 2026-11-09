@@ -2,12 +2,13 @@
   "name": "wisp",
   "private": true,
   "license": "Apache-2.0",
-  "version": "0.1.0",
+  "version": "0.3.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "test": "vitest run",
+    "release": "node scripts/release.mjs",
     "preview": "vite preview",
     "tauri": "tauri"
   },

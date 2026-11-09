@@ -27,7 +27,9 @@ import { createSpeedTracker } from "../features/transfers/speed";
 import { CommandPalette, type PaletteAction } from "../features/palette/CommandPalette";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { useSettings } from "../features/settings/SettingsContext";
+import { Notes } from "../features/updates/Notes";
 import { useUpdater } from "../features/updates/useUpdater";
+import { WhatsNew } from "../features/updates/WhatsNew";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { button, iconButton, primaryButton, secondaryButton } from "../ui/controls";
 import { Logo } from "../ui/Logo";
@@ -565,6 +567,7 @@ export default function App() {
         />
       )}
       {dialog?.kind === "settings" && <SettingsDialog onClose={close} updater={updater} />}
+      <WhatsNew />
       {dialog?.kind === "update" && (updater.status.kind === "available" || updater.status.kind === "installing") && (
         <Modal title="安装更新" open onClose={close} modal={updater.status.kind === "installing"}>
           {updater.status.kind === "available" ? (
@@ -573,9 +576,10 @@ export default function App() {
                 wisp {updater.status.update.version} 已发布。安装后应用会自动重启，所有连接会断开。
               </p>
               {updater.status.update.body && (
-                <pre className="mt-3 max-h-48 overflow-y-auto whitespace-pre-wrap rounded-md bg-panel p-3 text-xs">
-                  {updater.status.update.body}
-                </pre>
+                <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-line bg-canvas p-3">
+                  <p className="mb-2 text-xs font-medium text-muted">更新内容</p>
+                  <Notes markdown={updater.status.update.body} />
+                </div>
               )}
               {hasUnsaved && <p className="mt-3 text-sm text-danger">有文件尚未保存，重启后这些修改会丢失。</p>}
               <div className="mt-5 flex justify-end gap-2">

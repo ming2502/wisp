@@ -8,6 +8,8 @@ import { FONT_SIZE_RANGE, SCROLLBACK_RANGE, type Appearance, type CursorStyle, t
 import { useSettings } from "./SettingsContext";
 import type { Updater } from "../updates/useUpdater";
 import { formatBytes } from "../../lib/format";
+import { changelogSection } from "../updates/changelog";
+import { Notes } from "../updates/Notes";
 
 const APPEARANCES: [Appearance, string][] = [
   ["system", "跟随系统"],
@@ -68,6 +70,8 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 export function SettingsDialog({ onClose, updater }: { onClose: () => void; updater: Updater }) {
   const { settings, update } = useSettings();
   const [version, setVersion] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
+  const notes = version ? changelogSection(version) : null;
 
   useEffect(() => {
     getVersion()
@@ -206,6 +210,22 @@ export function SettingsDialog({ onClose, updater }: { onClose: () => void; upda
               </button>
             </span>
           </div>
+          {notes && (
+            <div className="px-3 py-1.5 text-sm">
+              <div className="flex min-h-8 items-center justify-between gap-4">
+                <span>本版本更新内容</span>
+                <button
+                  type="button"
+                  aria-expanded={notesOpen}
+                  className="shrink-0 text-xs font-medium text-accent transition-colors duration-150 hover:text-accent-hover hover:underline"
+                  onClick={() => setNotesOpen((open) => !open)}
+                >
+                  {notesOpen ? "收起" : "查看"}
+                </button>
+              </div>
+              {notesOpen && <Notes markdown={notes} className="pb-2 pt-1" />}
+            </div>
+          )}
           <Row label="启动时自动检查更新">
             {(id) => (
               <Switch

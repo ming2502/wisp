@@ -1,7 +1,10 @@
 name: Release
 
-# Pushing a tag such as v0.2.0 builds both platforms and creates a draft release with the
-# installers and the signed update manifest. Publishing the draft makes it the update users get.
+# Pushing a tag such as v0.4.0 (normally through `pnpm release`) builds both platforms into a
+# draft release whose notes are that version's section of CHANGELOG.md. The same notes go into
+# the signed update manifest, which the app shows when it offers the update. Once every build has
+# succeeded the draft is published, which is when installed copies start receiving the update. A
+# tag with a hyphen, such as v0.4.0-beta.1, is published as a pre-release, which the updater skips.
 on:
   push:
     tags: ["v*"]
@@ -10,7 +13,39 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      notes: ${{ steps.notes.outputs.notes }}
+      prerelease: ${{ steps.notes.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the release is configured
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          node scripts/check-version.mjs "${GITHUB_REF_NAME#v}"
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::Add the TAURI_SIGNING_PRIVATE_KEY secret first"
+            exit 1
+          fi
+
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          notes=$(node scripts/changelog-section.mjs "$version")
+          echo "$notes"
+          {
+            echo "notes<<WISP_NOTES_END"
+            echo "$notes"
+            echo "WISP_NOTES_END"
+            if [[ "$version" == *-* ]]; then echo "prerelease=true"; else echo "prerelease=false"; fi
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -26,26 +61,6 @@ jobs:
       HAS_APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check that the release is configured
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in Cargo.toml"
-            exit 1
-          fi
-          if grep -q -e REPLACE_WITH_UPDATER_PUBLIC_KEY -e 'github.com/OWNER/' src-tauri/tauri.conf.json; then
-            echo "::error::Set the updater public key and repository in src-tauri/tauri.conf.json first"
-            exit 1
-          fi
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::Add the TAURI_SIGNING_PRIVATE_KEY secret first"
-            exit 1
-          fi
-
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -74,6 +89,7 @@ jobs:
             echo "$name=${!name}" >> "$GITHUB_ENV"
           done
 
+      # The release body also becomes the `notes` of latest.json, read by the in-app updater.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -82,7 +98,32 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: wisp ${{ github.ref_name }}
-          releaseBody: 安装方法与首次打开的说明见 README。
+          releaseBody: ${{ needs.prepare.outputs.notes }}
           releaseDraft: true
+          prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
           includeUpdaterJson: true
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
+
+  # Publishes the draft once both platforms are on it with the update manifest; any failure above
+  # stops here and leaves the draft unpublished.
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the assets and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+        run: |
+          assets=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')
+          echo "$assets"
+          for pattern in '\.dmg$' '\.app\.tar\.gz$' '-setup\.exe$' '^latest\.json$'; do
+            grep -qE -- "$pattern" <<< "$assets" || { echo "::error::no asset matching $pattern"; exit 1; }
+          done
+          if [ "$PRERELEASE" = true ]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease
+          else
+            gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+          fi
+          gh release view "$GITHUB_REF_NAME" --json url,isDraft,isPrerelease
