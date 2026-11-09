@@ -28,7 +28,6 @@ import { CommandPalette, type PaletteAction } from "../features/palette/CommandP
 import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { useSettings } from "../features/settings/SettingsContext";
 import { UpdateDialog } from "../features/updates/UpdateDialog";
-import { UpdateNotice } from "../features/updates/UpdateNotice";
 import { useUpdater } from "../features/updates/useUpdater";
 import { WhatsNew } from "../features/updates/WhatsNew";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -571,7 +570,6 @@ export default function App() {
       )}
       <WhatsNew />
       {dialog?.kind === "update" && <UpdateDialog updater={updater} hasUnsaved={hasUnsaved} onClose={close} />}
-      <UpdateNotice updater={updater} onOpen={() => setDialog({ kind: "update" })} />
       {dialog?.kind === "editHost" && (
         <HostEditor
           host={dialog.host}

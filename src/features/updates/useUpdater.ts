@@ -15,8 +15,7 @@ export type UpdateStatus =
   | { kind: "idle" }
   | { kind: "checking" }
   | { kind: "upToDate" }
-  /** `found` says whether a background check found it, which announces it more loudly. */
-  | { kind: "available"; update: Update; found: "background" | "manual" }
+  | { kind: "available"; update: Update }
   | { kind: "installing"; update: Update; downloaded: number; total: number | null }
   /** With `update` when installing it failed, so that it can be tried again. */
   | { kind: "error"; message: string; update?: Update };
@@ -56,7 +55,7 @@ export function useUpdater(autoCheck: boolean): Updater {
       setStatus((current) => {
         // A check while an update is being installed must not interrupt it.
         if (current.kind === "installing") return current;
-        if (update) return { kind: "available", update, found: manual ? "manual" : "background" };
+        if (update) return { kind: "available", update };
         return manual ? { kind: "upToDate" } : { kind: "idle" };
       });
       return true;
