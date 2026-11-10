@@ -50,8 +50,6 @@ pub fn run() {
             commands::hosts::host_move,
             commands::hosts::group_save,
             commands::hosts::group_delete,
-            commands::hosts::ssh_config_preview,
-            commands::hosts::ssh_config_import,
             commands::connection::ssh_disconnect,
             commands::connection::ssh_replace,
             commands::settings::settings_load,

@@ -40,6 +40,7 @@ import { NameDialog } from "../../ui/NameDialog";
 import { compactInputClass, iconButton } from "../../ui/controls";
 import { backupName, restoredName } from "./backup";
 import { ChmodDialog } from "./ChmodDialog";
+import { landedIn, type FinishedUpload } from "./uploads";
 import { emptySelection, moveFocus, prune, select, selectAll, type Selection } from "./selection";
 
 const ROW_HEIGHT = 30;
@@ -90,9 +91,11 @@ interface Props {
   active: boolean;
   onNotice: (message: string) => void;
   onOpenFile: (path: string) => void;
+  /** Uploads of this session the queue has finished, so the listing can pick them up. */
+  finishedUploads: readonly FinishedUpload[];
 }
 
-export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) {
+export function FileBrowser({ sessionId, active, onNotice, onOpenFile, finishedUploads }: Props) {
   const [path, setPath] = useState<string | null>(null);
   const [typedPath, setTypedPath] = useState("");
   const [entries, setEntries] = useState<RemoteEntry[]>([]);
@@ -145,6 +148,28 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
   }, [active, path, loading, error, load]);
 
   const refresh = () => load(path);
+
+  // A finished upload into the shown directory, or a folder under it, reloads the listing. Uploads
+  // that had already finished when the view opened are not news; a burst of small files reloads once.
+  const seenUploads = useRef<Set<number> | null>(null);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const latestLoad = useRef(() => {});
+  latestLoad.current = () => load(path);
+  useEffect(() => {
+    const seen = seenUploads.current;
+    if (seen === null) {
+      seenUploads.current = new Set(finishedUploads.map((upload) => upload.id));
+      return;
+    }
+    const fresh = finishedUploads.filter((upload) => !seen.has(upload.id));
+    for (const upload of fresh) seen.add(upload.id);
+    if (path === null || !landedIn(path, fresh) || reloadTimer.current !== undefined) return;
+    reloadTimer.current = setTimeout(() => {
+      reloadTimer.current = undefined;
+      latestLoad.current();
+    }, 250);
+  }, [finishedUploads, path]);
+  useEffect(() => () => clearTimeout(reloadTimer.current), []);
 
   const upload = useCallback(
     async (localPaths: string[], confirmed = false) => {

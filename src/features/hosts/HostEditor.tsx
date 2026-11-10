@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { hostSave, type Group, type Host, type HostAuth, type SecretChange } from "../../ipc";
 import { Modal } from "../../ui/Modal";
 import { Field } from "../../ui/Field";
+import { Select } from "../../ui/Select";
 import { inputClass, primaryButton, secondaryButton } from "../../ui/controls";
 
 type AuthKind = HostAuth["kind"];
@@ -131,28 +132,19 @@ export function HostEditor({ host, groups, onSaved, onClose }: Props) {
             />
           </Field>
           <Field label="分组">
-            <select className={inputClass} value={groupId} onChange={(event) => setGroupId(event.target.value)}>
-              <option value="">无分组</option>
-              {groups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={groupId}
+              options={[{ value: "", label: "无分组" }, ...groups.map((group) => ({ value: group.id, label: group.name }))]}
+              onChange={setGroupId}
+            />
           </Field>
         </div>
         <Field label="认证方式">
-          <select
-            className={inputClass}
+          <Select
             value={authKind}
-            onChange={(event) => setAuthKind(event.target.value as AuthKind)}
-          >
-            {(Object.keys(AUTH_LABELS) as AuthKind[]).map((kind) => (
-              <option key={kind} value={kind}>
-                {AUTH_LABELS[kind]}
-              </option>
-            ))}
-          </select>
+            options={(Object.keys(AUTH_LABELS) as AuthKind[]).map((kind) => ({ value: kind, label: AUTH_LABELS[kind] }))}
+            onChange={setAuthKind}
+          />
         </Field>
         {authKind === "key" && (
           <Field label="私钥路径">

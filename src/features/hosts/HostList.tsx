@@ -7,7 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { FileDown, FolderPlus, Pencil, Plus, Search, Server, Trash2 } from "lucide-react";
+import { FolderPlus, Pencil, Plus, Search, Server, Trash2 } from "lucide-react";
 import type { Group, Host } from "../../ipc";
 import { iconButton } from "../../ui/controls";
 import { isNoop, type Drop } from "./order";
@@ -29,7 +29,6 @@ interface Props {
   onNewGroup: () => void;
   onEditGroup: (group: Group) => void;
   onDeleteGroup: (group: Group) => void;
-  onImport: () => void;
   onMoveHost: (host: Host, drop: Drop) => void;
 }
 
@@ -230,9 +229,6 @@ export function HostList(props: Props) {
       <div className="flex select-none items-center justify-between px-3 pb-1.5 pt-1">
         <h1 className="text-[11px] font-semibold uppercase tracking-wider text-muted">主机</h1>
         <span className="flex">
-          <button type="button" aria-label="从 SSH 配置导入" data-tooltip="从 SSH 配置导入" className={iconButton} onClick={props.onImport}>
-            <FileDown size={15} />
-          </button>
           <button type="button" aria-label="新建分组" data-tooltip="新建分组" className={iconButton} onClick={props.onNewGroup}>
             <FolderPlus size={15} />
           </button>
@@ -261,10 +257,6 @@ export function HostList(props: Props) {
             <p className="text-ink">还没有主机</p>
             <button type="button" className="mt-2 text-accent hover:underline" onClick={props.onNewHost}>
               新建主机
-            </button>
-            <span> 或 </span>
-            <button type="button" className="text-accent hover:underline" onClick={props.onImport}>
-              从 SSH 配置导入
             </button>
           </div>
         ) : (

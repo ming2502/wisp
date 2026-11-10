@@ -2,9 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   CircleStop,
-  Command as CommandIcon,
   Download,
-  FileDown,
   FileText,
   FolderOpen,
   Plus,
@@ -19,19 +17,18 @@ import { GroupEditor } from "../features/hosts/GroupEditor";
 import { HostEditor } from "../features/hosts/HostEditor";
 import { HostList } from "../features/hosts/HostList";
 import { moveHost } from "../features/hosts/order";
-import { ImportDialog } from "../features/hosts/ImportDialog";
 import { TerminalView } from "../features/terminal/TerminalView";
 import { FileBrowser } from "../features/files/FileBrowser";
+import type { FinishedUpload } from "../features/files/uploads";
 import { TransfersPanel } from "../features/transfers/TransfersPanel";
 import { createSpeedTracker } from "../features/transfers/speed";
-import { CommandPalette, type PaletteAction } from "../features/palette/CommandPalette";
 import { SettingsDialog } from "../features/settings/SettingsDialog";
 import { useSettings } from "../features/settings/SettingsContext";
 import { UpdateDialog } from "../features/updates/UpdateDialog";
 import { useUpdater } from "../features/updates/useUpdater";
 import { WhatsNew } from "../features/updates/WhatsNew";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
-import { button, iconButton } from "../ui/controls";
+import { button } from "../ui/controls";
 import { Logo } from "../ui/Logo";
 import { isMac, isShortcut, shortcutLabel } from "../lib/platform";
 import {
@@ -65,14 +62,14 @@ const EditorView = lazy(() =>
   import("../features/editor/EditorView").then((module) => ({ default: module.EditorView })),
 );
 
+const noUploads: readonly FinishedUpload[] = [];
+
 type Dialog =
   | { kind: "connect"; host: Host; replacing?: number }
   | { kind: "editHost"; host: Host | null }
   | { kind: "deleteHost"; host: Host }
   | { kind: "editGroup"; group: Group | null }
   | { kind: "deleteGroup"; group: Group }
-  | { kind: "import" }
-  | { kind: "palette" }
   | { kind: "settings" }
   | { kind: "closeTabs"; key: string; message: string }
   | { kind: "update" }
@@ -84,38 +81,26 @@ function Kbd({ children }: { children: string }) {
   );
 }
 
-function Welcome({ onNewHost, onImport, onPalette }: { onNewHost: () => void; onImport: () => void; onPalette: () => void }) {
+function Welcome({ onNewHost }: { onNewHost: () => void }) {
   return (
     <div className="flex h-full items-center justify-center p-8">
       <div className="w-full max-w-sm">
         <Logo size={44} />
         <h2 className="mt-5 text-xl font-semibold tracking-tight">开始连接</h2>
         <p className="mt-1.5 text-sm text-muted">在左侧选择一台主机，或者先添加一台。</p>
-        <div className="mt-6 space-y-2">
-          {(
-            [
-              [Plus, "新建主机", "填写地址、用户和认证方式", onNewHost],
-              [FileDown, "从 SSH 配置导入", "读取 ~/.ssh/config 中的主机", onImport],
-              [CommandIcon, "命令面板", "搜索主机、标签页和操作", onPalette, shortcutLabel("K")],
-            ] as const
-          ).map(([Icon, title, detail, onClick, shortcut]) => (
-            <button
-              key={title}
-              type="button"
-              className="flex w-full items-center gap-3 rounded-lg border border-line bg-raised px-3.5 py-3 text-left transition-colors duration-150 hover:border-line-strong hover:bg-hover"
-              onClick={onClick}
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/12 text-accent">
-                <Icon size={16} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium">{title}</span>
-                <span className="block truncate text-xs text-muted">{detail}</span>
-              </span>
-              {shortcut && <Kbd>{shortcut}</Kbd>}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          className="mt-6 flex w-full items-center gap-3 rounded-lg border border-line bg-raised px-3.5 py-3 text-left transition-colors duration-150 hover:border-line-strong hover:bg-hover"
+          onClick={onNewHost}
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent/12 text-accent">
+            <Plus size={16} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">新建主机</span>
+            <span className="block truncate text-xs text-muted">填写地址、用户和认证方式</span>
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -162,6 +147,15 @@ export default function App() {
       if (t.state.kind === "running" || t.state.kind === "queued")
         counts.set(t.owner, (counts.get(t.owner) ?? 0) + 1);
     return counts;
+  }, [transfers]);
+
+  // Each session's finished uploads, which its file view uses to reload the directory it shows.
+  const finishedUploads = useMemo(() => {
+    const bySession = new Map<number, FinishedUpload[]>();
+    for (const t of transfers)
+      if (t.direction === "upload" && t.state.kind === "completed")
+        bySession.set(t.owner, [...(bySession.get(t.owner) ?? []), { id: t.id, remote: t.remote }]);
+    return bySession;
   }, [transfers]);
 
   const connectedHosts = useMemo(
@@ -276,7 +270,6 @@ export default function App() {
   const shortcuts = useRef<(event: KeyboardEvent) => void>(() => {});
   shortcuts.current = (event) => {
     const handled = (() => {
-      if (isShortcut(event, "KeyK")) return setDialog({ kind: "palette" }), true;
       if (isShortcut(event, "Comma")) return setDialog({ kind: "settings" }), true;
       if (isShortcut(event, "KeyW") && activeKey) return requestClose(activeKey), true;
       const digit = /^Digit([1-9])$/.exec(event.code);
@@ -304,25 +297,6 @@ export default function App() {
     return () => window.removeEventListener("keydown", listener, true);
   }, []);
 
-  const actions: PaletteAction[] = [
-    { id: "new-host", label: "新建主机", icon: <Plus size={15} />, run: () => setDialog({ kind: "editHost", host: null }) },
-    { id: "import", label: "从 SSH 配置导入", icon: <FileDown size={15} />, run: () => setDialog({ kind: "import" }) },
-    { id: "settings", label: "设置", icon: <SettingsIcon size={15} />, shortcut: shortcutLabel(","), run: () => setDialog({ kind: "settings" }) },
-    ...(activeTab?.kind === "session"
-      ? [
-          {
-            id: "toggle-view",
-            label: activeTab.view === "terminal" ? "切换到文件" : "切换到终端",
-            icon: activeTab.view === "terminal" ? <FolderOpen size={15} /> : <SquareTerminal size={15} />,
-            run: () => setView(activeTab.key, activeTab.view === "terminal" ? "files" : "terminal"),
-          },
-        ]
-      : []),
-    ...(activeTab
-      ? [{ id: "close-tab", label: `关闭“${activeTab.title}”`, icon: <X size={15} />, shortcut: shortcutLabel("W"), run: () => requestClose(activeTab.key) }]
-      : []),
-  ];
-
   return (
     <div className="flex h-screen">
       <aside className="flex w-64 shrink-0 flex-col border-r border-line bg-panel">
@@ -345,7 +319,6 @@ export default function App() {
               onNewGroup={() => setDialog({ kind: "editGroup", group: null })}
               onEditGroup={(group) => setDialog({ kind: "editGroup", group })}
               onDeleteGroup={(group) => setDialog({ kind: "deleteGroup", group })}
-              onImport={() => setDialog({ kind: "import" })}
               onMoveHost={(host, drop) => {
                 setData((current) => ({ ...current, hosts: moveHost(current.hosts, host.id, drop) }));
                 hostMove(host.id, drop.groupId, drop.before)
@@ -365,24 +338,15 @@ export default function App() {
             新版本 {updater.update.version} 可用，点击查看
           </button>
         )}
-        <div className="flex shrink-0 items-center justify-between border-t border-line px-2 py-1.5">
+        <div className="shrink-0 border-t border-line px-2 py-1.5">
           <button
             type="button"
-            className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs text-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
-            onClick={() => setDialog({ kind: "palette" })}
-          >
-            <CommandIcon size={13} />
-            命令面板
-            <Kbd>{shortcutLabel("K")}</Kbd>
-          </button>
-          <button
-            type="button"
-            aria-label="设置"
-            data-tooltip={`设置 (${shortcutLabel(",")})`}
-            className={iconButton}
+            className="flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-xs text-muted transition-colors duration-150 hover:bg-hover hover:text-ink"
             onClick={() => setDialog({ kind: "settings" })}
           >
-            <SettingsIcon size={15} />
+            <SettingsIcon size={13} />
+            <span className="flex-1 text-left">设置</span>
+            <Kbd>{shortcutLabel(",")}</Kbd>
           </button>
         </div>
       </aside>
@@ -500,11 +464,7 @@ export default function App() {
         )}
         <div className="relative min-h-0 flex-1">
           {tabs.length === 0 && (
-            <Welcome
-              onNewHost={() => setDialog({ kind: "editHost", host: null })}
-              onImport={() => setDialog({ kind: "import" })}
-              onPalette={() => setDialog({ kind: "palette" })}
-            />
+<Welcome onNewHost={() => setDialog({ kind: "editHost", host: null })} />
           )}
           {tabs.map((tab) => (
             <div key={tab.key} className="absolute inset-0" style={{ display: tab.key === activeKey ? "block" : "none" }}>
@@ -525,6 +485,7 @@ export default function App() {
                         active={tab.key === activeKey && tab.view === "files"}
                         onNotice={setNotice}
                         onOpenFile={(path) => openFile(tab.sessionId, path)}
+                        finishedUploads={finishedUploads.get(tab.sessionId) ?? noUploads}
                       />
                     </div>
                   )}
@@ -557,16 +518,6 @@ export default function App() {
             connected(sessionId, dialog.host, dialog.replacing);
             close();
           }}
-          onClose={close}
-        />
-      )}
-      {dialog?.kind === "palette" && (
-        <CommandPalette
-          hosts={data.hosts}
-          tabs={tabs}
-          actions={actions}
-          onConnect={(host) => setDialog({ kind: "connect", host })}
-          onSwitch={setActiveKey}
           onClose={close}
         />
       )}
@@ -632,7 +583,6 @@ export default function App() {
           onClose={close}
         />
       )}
-      {dialog?.kind === "import" && <ImportDialog hosts={data.hosts} onImported={refresh} onClose={close} />}
     </div>
   );
 }

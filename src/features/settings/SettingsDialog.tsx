@@ -1,6 +1,7 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { getVersion } from "@tauri-apps/api/app";
 import { Modal } from "../../ui/Modal";
+import { Select } from "../../ui/Select";
 import { Switch } from "../../ui/Switch";
 import { button, compactInputClass } from "../../ui/controls";
 import { SCHEME_LABELS } from "../terminal/schemes";
@@ -127,18 +128,17 @@ export function SettingsDialog({ onClose, updater, onOpenUpdate }: Props) {
         <Section title="终端">
           <Row label="配色">
             {(id) => (
-              <select
+              <Select
                 id={id}
-                className={CONTROL}
+                size="sm"
+                className="w-40"
                 value={settings.terminal.scheme}
-                onChange={(event) => terminal({ scheme: event.target.value as TerminalScheme })}
-              >
-                {(Object.keys(SCHEME_LABELS) as TerminalScheme[]).map((scheme) => (
-                  <option key={scheme} value={scheme}>
-                    {SCHEME_LABELS[scheme]}
-                  </option>
-                ))}
-              </select>
+                options={(Object.keys(SCHEME_LABELS) as TerminalScheme[]).map((scheme) => ({
+                  value: scheme,
+                  label: SCHEME_LABELS[scheme],
+                }))}
+                onChange={(scheme) => terminal({ scheme })}
+              />
             )}
           </Row>
           <Row label="字号" hint={`${FONT_SIZE_RANGE[0]}–${FONT_SIZE_RANGE[1]}`}>
@@ -156,18 +156,14 @@ export function SettingsDialog({ onClose, updater, onOpenUpdate }: Props) {
           </Row>
           <Row label="光标">
             {(id) => (
-              <select
+              <Select
                 id={id}
-                className={CONTROL}
+                size="sm"
+                className="w-40"
                 value={settings.terminal.cursorStyle}
-                onChange={(event) => terminal({ cursorStyle: event.target.value as CursorStyle })}
-              >
-                {CURSORS.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+                options={CURSORS.map(([value, label]) => ({ value, label }))}
+                onChange={(cursorStyle) => terminal({ cursorStyle })}
+              />
             )}
           </Row>
           <Row label="回滚行数">

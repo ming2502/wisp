@@ -1,5 +1,3 @@
-pub mod ssh_config;
-
 use std::io::Write;
 use std::path::{Path, PathBuf};
 

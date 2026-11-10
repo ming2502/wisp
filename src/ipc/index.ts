@@ -31,20 +31,6 @@ export type HostDraft = Omit<Host, "id" | "savedSecret"> & { id: string | null }
 
 export type SecretChange = { kind: "keep" } | { kind: "set"; value: string } | { kind: "clear" };
 
-export interface ImportCandidate {
-  name: string;
-  host: string;
-  port: number;
-  user: string;
-  auth: HostAuth;
-  proxyJump: string | null;
-}
-
-export interface ImportPreview {
-  candidates: ImportCandidate[];
-  skippedDirectives: number;
-}
-
 export type Stage = "connecting" | "authenticating" | "ready";
 
 export interface HostKeyInfo {
@@ -97,15 +83,6 @@ export function groupSave(id: string | null, name: string): Promise<Group> {
 
 export function groupDelete(id: string): Promise<void> {
   return invoke("group_delete", { id });
-}
-
-export function sshConfigPreview(): Promise<ImportPreview> {
-  return invoke("ssh_config_preview");
-}
-
-/** Resolves to the number of entries that could not be saved. */
-export function sshConfigImport(candidates: ImportCandidate[]): Promise<number> {
-  return invoke("ssh_config_import", { candidates });
 }
 
 export function sshConnect(
