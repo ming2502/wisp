@@ -73,21 +73,22 @@ export function UpdateDialog({ updater, hasUnsaved, onClose }: Props) {
 }
 
 function Progress({ downloaded, total }: { downloaded: number; total: number | null }) {
+  // Until the size is known the bar only shows that something is happening, never an amount.
   const percent = total ? Math.min(100, Math.round((downloaded / total) * 100)) : null;
   return (
     <div role="status" className="mt-3 space-y-1.5">
       <div className="flex justify-between text-xs text-muted">
         <span>{percent === 100 ? "正在安装，完成后会自动重启…" : "正在下载更新…"}</span>
         <span className="tabular-nums">
-          {formatBytes(downloaded)}
-          {total ? ` / ${formatBytes(total)}` : ""}
+          {total ? `${formatBytes(downloaded)} / ${formatBytes(total)}` : downloaded > 0 ? `已下载 ${formatBytes(downloaded)}` : "正在连接…"}
         </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-line">
-        <div
-          className={`h-full rounded-full bg-accent transition-[width] duration-150 ${percent === null ? "w-1/3 animate-pulse" : ""}`}
-          style={percent === null ? undefined : { width: `${percent}%` }}
-        />
+        {percent === null ? (
+          <div className="h-full w-1/3 animate-indeterminate rounded-full bg-accent" />
+        ) : (
+          <div className="h-full rounded-full bg-accent transition-[width] duration-150" style={{ width: `${percent}%` }} />
+        )}
       </div>
     </div>
   );

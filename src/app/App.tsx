@@ -388,93 +388,97 @@ export default function App() {
       </aside>
       <main className="flex min-w-0 flex-1 flex-col">
         {/* A fixed-height strip that never moves the window. The tabs sit on the bottom line and only
-            scroll sideways; the active tab covers the line beneath it. */}
-        <div className="relative flex h-10 shrink-0 items-center gap-2 overflow-hidden bg-panel pr-2">
-          <span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-line" />
-          <div
-            role="tablist"
-            className="flex h-full min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden overscroll-none px-1.5 select-none [scrollbar-width:none]"
-          >
-            {tabs.map((tab) => {
-              const active = tab.key === activeKey;
-              return (
-                <div
-                  key={tab.key}
-                  className={`group relative flex h-8 shrink-0 items-center rounded-t-md text-[13px] transition-colors duration-150 ${
-                    active ? "bg-canvas text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-hover hover:text-ink"
-                  }`}
-                >
-                  {active && <span aria-hidden className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-accent" />}
-                  {active && <span aria-hidden className="absolute inset-x-px bottom-0 h-px bg-canvas" />}
-                  <button
-                    role="tab"
-                    aria-selected={active}
-                    data-tooltip={tab.kind === "editor" ? tab.path : undefined}
-                    className="flex h-full max-w-56 items-center gap-2 pl-3 pr-1.5"
-                    onClick={() => setActiveKey(tab.key)}
+            scroll sideways; the active tab covers the line beneath it. Under the Windows title bar an
+            empty one only cuts the sidebar's edge short, so there it appears with the first tab;
+            macOS keeps it for the row the traffic lights sit in. */}
+        {(isMac || tabs.length > 0) && (
+          <div className="relative flex h-10 shrink-0 items-center gap-2 overflow-hidden bg-panel pr-2">
+            <span aria-hidden className="absolute inset-x-0 bottom-0 h-px bg-line" />
+            <div
+              role="tablist"
+              className="flex h-full min-w-0 flex-1 items-end gap-0.5 overflow-x-auto overflow-y-hidden overscroll-none px-1.5 select-none [scrollbar-width:none]"
+            >
+              {tabs.map((tab) => {
+                const active = tab.key === activeKey;
+                return (
+                  <div
+                    key={tab.key}
+                    className={`group relative flex h-8 shrink-0 items-center rounded-t-md text-[13px] transition-colors duration-150 ${
+                      active ? "bg-canvas text-ink shadow-[inset_0_0_0_1px_var(--color-line)]" : "text-muted hover:bg-hover hover:text-ink"
+                    }`}
                   >
-                    {tab.kind === "editor" ? (
-                      <FileText size={13} className="shrink-0" />
-                    ) : (
-                      <span
-                        aria-label={tab.end === "disconnected" ? "已断开" : tab.end ? "会话已结束" : "已连接"}
-                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                          tab.end === "disconnected" ? "bg-danger" : tab.end ? "bg-muted" : "bg-accent"
-                        }`}
-                      />
-                    )}
-                    {/* A session tab names its host in full only when the name is cut short. */}
-                    <span
-                      className="truncate"
-                      data-tooltip={tab.kind === "editor" ? undefined : tab.title}
-                      data-tooltip-overflow
+                    {active && <span aria-hidden className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-accent" />}
+                    {active && <span aria-hidden className="absolute inset-x-px bottom-0 h-px bg-canvas" />}
+                    <button
+                      role="tab"
+                      aria-selected={active}
+                      data-tooltip={tab.kind === "editor" ? tab.path : undefined}
+                      className="flex h-full max-w-56 items-center gap-2 pl-3 pr-1.5"
+                      onClick={() => setActiveKey(tab.key)}
                     >
-                      {tab.title}
-                    </span>
-                  </button>
-                  <button
-                    aria-label={`关闭 ${tab.title}`}
-                    className="mr-1 flex h-5 w-5 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-selected hover:text-ink"
-                    onClick={() => requestClose(tab.key)}
-                  >
-                    {tab.kind === "editor" && tab.dirty ? (
-                      <>
-                        <span aria-label="未保存" className="h-2 w-2 rounded-full bg-accent group-hover:hidden" />
-                        <X size={13} className="hidden group-hover:block" />
-                      </>
-                    ) : (
-                      <X size={13} />
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-          {notice && <span className="max-w-[40%] truncate text-xs text-muted" data-tooltip={notice} data-tooltip-overflow>{notice}</span>}
-          {activeTab?.kind === "session" && (
-            <div role="radiogroup" aria-label="视图" className="flex shrink-0 rounded-md border border-line bg-canvas p-0.5 text-xs">
-              {(
-                [
-                  ["terminal", "终端", SquareTerminal],
-                  ["files", "文件", FolderOpen],
-                ] as const
-              ).map(([view, label, Icon]) => (
-                <button
-                  key={view}
-                  role="radio"
-                  aria-checked={activeTab.view === view}
-                  className={`flex h-6 items-center gap-1.5 rounded px-2.5 transition-colors duration-150 ${
-                    activeTab.view === view ? "bg-selected font-medium text-ink" : "text-muted hover:text-ink"
-                  }`}
-                  onClick={() => setView(activeTab.key, view)}
-                >
-                  <Icon size={13} />
-                  {label}
-                </button>
-              ))}
+                      {tab.kind === "editor" ? (
+                        <FileText size={13} className="shrink-0" />
+                      ) : (
+                        <span
+                          aria-label={tab.end === "disconnected" ? "已断开" : tab.end ? "会话已结束" : "已连接"}
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                            tab.end === "disconnected" ? "bg-danger" : tab.end ? "bg-muted" : "bg-accent"
+                          }`}
+                        />
+                      )}
+                      {/* A session tab names its host in full only when the name is cut short. */}
+                      <span
+                        className="truncate"
+                        data-tooltip={tab.kind === "editor" ? undefined : tab.title}
+                        data-tooltip-overflow
+                      >
+                        {tab.title}
+                      </span>
+                    </button>
+                    <button
+                      aria-label={`关闭 ${tab.title}`}
+                      className="mr-1 flex h-5 w-5 items-center justify-center rounded text-muted transition-colors duration-150 hover:bg-selected hover:text-ink"
+                      onClick={() => requestClose(tab.key)}
+                    >
+                      {tab.kind === "editor" && tab.dirty ? (
+                        <>
+                          <span aria-label="未保存" className="h-2 w-2 rounded-full bg-accent group-hover:hidden" />
+                          <X size={13} className="hidden group-hover:block" />
+                        </>
+                      ) : (
+                        <X size={13} />
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          )}
-        </div>
+            {notice && <span className="max-w-[40%] truncate text-xs text-muted" data-tooltip={notice} data-tooltip-overflow>{notice}</span>}
+            {activeTab?.kind === "session" && (
+              <div role="radiogroup" aria-label="视图" className="flex shrink-0 rounded-md border border-line bg-canvas p-0.5 text-xs">
+                {(
+                  [
+                    ["terminal", "终端", SquareTerminal],
+                    ["files", "文件", FolderOpen],
+                  ] as const
+                ).map(([view, label, Icon]) => (
+                  <button
+                    key={view}
+                    role="radio"
+                    aria-checked={activeTab.view === view}
+                    className={`flex h-6 items-center gap-1.5 rounded px-2.5 transition-colors duration-150 ${
+                      activeTab.view === view ? "bg-selected font-medium text-ink" : "text-muted hover:text-ink"
+                    }`}
+                    onClick={() => setView(activeTab.key, view)}
+                  >
+                    <Icon size={13} />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {activeTab?.kind === "session" && activeTab.end && (
           <div
             role="status"

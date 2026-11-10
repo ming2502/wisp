@@ -33,6 +33,17 @@
 
   --shadow-overlay: 0 16px 48px -12px rgb(2 6 23 / 0.35), 0 0 0 1px rgb(2 6 23 / 0.04);
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* A segment sweeping across a track, for progress whose total is not known yet. */
+  --animate-indeterminate: indeterminate 1.4s var(--ease-out) infinite;
+  @keyframes indeterminate {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(300%);
+    }
+  }
 }
 
 :root {

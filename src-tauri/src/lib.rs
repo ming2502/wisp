@@ -14,10 +14,10 @@ pub fn run() {
         .manage(state::AppState::default())
         .setup(|app| {
             let dir = app.path().app_config_dir()?;
-            *app.state::<state::AppState>().config_dir.lock().unwrap() = Some(dir);
             if let Some(window) = app.get_webview_window("main") {
-                commands::title_bar::hide_title_text(&window);
+                commands::title_bar::prepare(&window, &dir.join(commands::settings::FILE));
             }
+            *app.state::<state::AppState>().config_dir.lock().unwrap() = Some(dir);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -4,7 +4,7 @@ use wisp_core::store::write_atomically;
 
 use crate::state::AppState;
 
-const FILE: &str = "settings.json";
+pub const FILE: &str = "settings.json";
 
 /// The frontend owns the shape of the settings and fills in defaults, so they are stored as-is.
 /// A missing or unreadable file yields `null`, which means all defaults.

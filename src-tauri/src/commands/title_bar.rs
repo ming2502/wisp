@@ -14,12 +14,30 @@ pub fn set_title_bar_theme(window: WebviewWindow, dark: bool) -> Result<(), Stri
     Ok(())
 }
 
-/// Hides the title text, leaving the icon. The title stays set for the taskbar and Alt+Tab.
-pub fn hide_title_text(window: &WebviewWindow) {
+/// Gets the title bar ready before the window first appears, which on Windows starts hidden
+/// (tauri.windows.conf.json): the title text is hidden, leaving the icon, and the colours follow
+/// the saved appearance, so neither the text nor the wrong colours flash up. The title stays set
+/// for the taskbar and Alt+Tab.
+pub fn prepare(window: &WebviewWindow, settings: &std::path::Path) {
     #[cfg(windows)]
-    windows::hide_caption(window);
+    {
+        windows::hide_caption(window);
+        let appearance = std::fs::read(settings)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+            .and_then(|value| value["appearance"].as_str().map(str::to_owned));
+        let dark = match appearance.as_deref() {
+            Some("dark") => true,
+            Some("light") => false,
+            _ => window
+                .theme()
+                .is_ok_and(|theme| theme == tauri::Theme::Dark),
+        };
+        let _ = windows::paint(window, dark);
+        let _ = window.show();
+    }
     #[cfg(not(windows))]
-    let _ = window;
+    let _ = (window, settings);
 }
 
 #[cfg(windows)]
