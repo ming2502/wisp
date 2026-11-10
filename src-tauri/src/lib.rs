@@ -24,6 +24,7 @@ pub fn run() {
             commands::core_version,
             commands::app_ready,
             commands::open_release_page,
+            commands::clipboard::clipboard_files,
             commands::title_bar::set_title_bar_theme,
             commands::connection::ssh_connect,
             commands::editor::editor_open,

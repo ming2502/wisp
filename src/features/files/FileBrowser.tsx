@@ -19,6 +19,7 @@ import {
   Upload,
 } from "lucide-react";
 import {
+  clipboardFiles,
   pickPaths,
   sftpChmod,
   sftpCopy,
@@ -32,6 +33,7 @@ import {
   type RemoteEntry,
 } from "../../ipc";
 import { formatBytes, formatPermissions, formatTime } from "../../lib/format";
+import { isMac } from "../../lib/platform";
 import { ConfirmDialog } from "../../ui/ConfirmDialog";
 import { ContextMenu } from "../../ui/ContextMenu";
 import { NameDialog } from "../../ui/NameDialog";
@@ -167,6 +169,43 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
 
   const latestUpload = useRef(upload);
   latestUpload.current = upload;
+
+  // Files copied in Finder or Explorer upload on paste while this view is shown. The shortcut and
+  // the paste event can both arrive for one press, so a second request close behind is ignored.
+  const notice = useRef(onNotice);
+  notice.current = onNotice;
+  useEffect(() => {
+    if (!active) return;
+    let last = 0;
+    const ignored = (target: EventTarget | null) =>
+      target instanceof HTMLElement &&
+      (target.isContentEditable || target.matches("input, textarea, select") || target.closest("[role=dialog]") !== null);
+    const paste = async () => {
+      if (Date.now() - last < 500) return;
+      last = Date.now();
+      const files = await clipboardFiles().catch(() => [] as string[]);
+      if (files.length > 0) void latestUpload.current(files);
+      else notice.current("剪贴板中没有文件：在访达或资源管理器中复制文件后再粘贴");
+    };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      const mod = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+      const v = event.code === "KeyV" || event.key.toLowerCase() === "v";
+      if (!v || !mod || event.altKey || ignored(event.target)) return;
+      event.preventDefault();
+      void paste();
+    };
+    const onPaste = (event: ClipboardEvent) => {
+      if (ignored(event.target)) return;
+      event.preventDefault();
+      void paste();
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("paste", onPaste);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("paste", onPaste);
+    };
+  }, [active]);
 
   useEffect(() => {
     if (!active) return;
@@ -430,7 +469,7 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile }: Props) 
           })}
         </div>
         {!loading && path !== null && entries.length === 0 && (
-          <p className="pt-10 text-center text-muted">空目录，可将文件拖到这里上传</p>
+          <p className="pt-10 text-center text-muted">空目录，可将文件拖到这里，或复制后按 {isMac ? "⌘V" : "Ctrl+V"} 上传</p>
         )}
       </div>
 

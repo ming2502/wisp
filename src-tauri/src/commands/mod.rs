@@ -1,3 +1,4 @@
+pub mod clipboard;
 pub mod connection;
 pub mod editor;
 pub mod files;

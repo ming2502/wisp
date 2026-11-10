@@ -30,7 +30,7 @@ zeroize = { version = "1", features = ["serde"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 dispatch2 = "0.3"
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSOpenPanel", "NSSavePanel", "NSPanel", "NSWindow", "NSResponder"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSOpenPanel", "NSPanel", "NSPasteboard", "NSPasteboardItem", "NSResponder", "NSSavePanel", "NSWindow"] }
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSGeometry", "NSString", "NSURL"] }
 
 [target.'cfg(windows)'.dependencies]
@@ -38,6 +38,7 @@ windows = { version = "0.62", features = [
   "Win32_Foundation",
   "Win32_Graphics_Dwm",
   "Win32_System_Com",
+  "Win32_System_DataExchange",
   "Win32_System_Ole",
   "Win32_UI_Controls",
   "Win32_UI_Shell",

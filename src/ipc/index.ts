@@ -376,3 +376,8 @@ export function openReleasePage(version: string): Promise<void> {
 export function setTitleBarTheme(dark: boolean): Promise<void> {
   return invoke("set_title_bar_theme", { dark });
 }
+
+/** The paths of files and folders copied in Finder or Explorer; empty when there are none. */
+export function clipboardFiles(): Promise<string[]> {
+  return invoke("clipboard_files");
+}
