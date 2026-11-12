@@ -17,6 +17,8 @@ interface Props {
   closeButton?: boolean;
   /** Stays pinned to the bottom while the body scrolls. */
   footer?: ReactNode;
+  /** The children lay out the whole dialog themselves; the title is then only read out. */
+  bare?: boolean;
 }
 
 export function Modal({
@@ -29,6 +31,7 @@ export function Modal({
   onOpenAutoFocus,
   closeButton = false,
   footer,
+  bare = false,
 }: Props) {
   const block = (event: Event) => {
     if (modal) event.preventDefault();
@@ -47,11 +50,22 @@ export function Modal({
             onPointerDownOutside={block}
             className={`pointer-events-auto relative flex max-h-[85vh] w-full ${width} flex-col overflow-hidden rounded-xl border border-line-strong bg-raised shadow-overlay`}
           >
-            <Dialog.Title className={`shrink-0 px-5 pb-4 pt-5 text-[15px] font-semibold tracking-tight ${closeButton ? "pr-12" : ""}`}>
-              {title}
-            </Dialog.Title>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{children}</div>
-            {footer && <div className="shrink-0 border-t border-line px-5 py-3">{footer}</div>}
+            {bare ? (
+              <>
+                <Dialog.Title className="sr-only">{title}</Dialog.Title>
+                {children}
+              </>
+            ) : (
+              <>
+                <Dialog.Title
+                  className={`shrink-0 px-5 pb-4 pt-5 text-[15px] font-semibold tracking-tight ${closeButton ? "pr-12" : ""}`}
+                >
+                  {title}
+                </Dialog.Title>
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">{children}</div>
+                {footer && <div className="shrink-0 border-t border-line px-5 py-3">{footer}</div>}
+              </>
+            )}
             {/* Last in the markup, so opening the dialog focuses its first control rather than this. */}
             {closeButton && (
               <Dialog.Close aria-label="关闭" className={`${iconButton} absolute right-3.5 top-4`}>
