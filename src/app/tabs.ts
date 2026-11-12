@@ -12,6 +12,8 @@ export type Tab =
       /** Why the shell stopped, if it did. After "exited" the connection itself is still usable. */
       end: TerminalEnd["kind"] | null;
       view: View;
+      /** Counts the switches to the files that should open the shell's directory. */
+      follow?: number;
     }
   | { kind: "editor"; key: string; sessionId: number; path: string; title: string; dirty: boolean };
 

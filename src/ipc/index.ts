@@ -140,6 +140,11 @@ export function terminalClose(terminalId: number): Promise<void> {
   return invoke("terminal_close", { terminalId });
 }
 
+/** The directory the session's shell is in, or null when the server cannot tell. */
+export function terminalDir(sessionId: number): Promise<string | null> {
+  return invoke("terminal_dir", { sessionId });
+}
+
 export type EntryKind = "file" | "dir" | "symlink" | "other";
 
 export interface RemoteEntry {

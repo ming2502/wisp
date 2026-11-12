@@ -72,6 +72,11 @@ fn real_openssh_server_and_agent() {
             .0
             .unwrap_or_else(|error| panic!("key login: {error}"));
 
+        assert_eq!(
+            session.terminal_dir().await,
+            None,
+            "no terminal is open yet"
+        );
         let mut term = open(
             &session,
             TerminalSize {
@@ -80,6 +85,22 @@ fn real_openssh_server_and_agent() {
             },
         )
         .await;
+
+        // The file view follows the shell, from its prompt and while a program runs in it.
+        let followed = dir.path().join("follow me");
+        std::fs::create_dir(&followed).unwrap();
+        let followed = std::fs::canonicalize(&followed).unwrap();
+        let cd = format!("cd '{}'; echo here$((7))\n", followed.display());
+        term.terminal.write(cd.into_bytes());
+        term.read_until(b"here7\r\n").await;
+        let expected = followed.to_str().map(str::to_owned);
+        assert_eq!(session.terminal_dir().await, expected);
+        term.terminal
+            .write(b"(cd /; sleep 2); echo slept$((8))\n".to_vec());
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert_eq!(session.terminal_dir().await.as_deref(), Some("/"));
+        term.read_until(b"slept8\r\n").await;
+        assert_eq!(session.terminal_dir().await, expected);
 
         term.terminal
             .write(b"stty size; echo TERM=$TERM; echo done$((1))\n".to_vec());

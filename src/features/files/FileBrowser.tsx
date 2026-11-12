@@ -29,6 +29,7 @@ import {
   sftpRename,
   sftpRenameReplacing,
   transferDownload,
+  terminalDir,
   transferUpload,
   type RemoteEntry,
 } from "../../ipc";
@@ -93,9 +94,11 @@ interface Props {
   onOpenFile: (path: string) => void;
   /** Uploads of this session the queue has finished, so the listing can pick them up. */
   finishedUploads: readonly FinishedUpload[];
+  /** Goes up each time the view should open the directory the terminal's shell is in. */
+  follow: number;
 }
 
-export function FileBrowser({ sessionId, active, onNotice, onOpenFile, finishedUploads }: Props) {
+export function FileBrowser({ sessionId, active, onNotice, onOpenFile, finishedUploads, follow }: Props) {
   const [path, setPath] = useState<string | null>(null);
   const [typedPath, setTypedPath] = useState("");
   const [entries, setEntries] = useState<RemoteEntry[]>([]);
@@ -142,10 +145,38 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile, finishedU
     [sessionId, path],
   );
 
-  // Opens the home directory once, the first time the file view is shown.
+  // Coming over from the terminal opens the directory its shell is in. Where the server cannot
+  // tell, the view stays where it was, or starts in the home directory.
+  const [following, setFollowing] = useState(false);
+  const followPending = useRef(false);
+  const handledFollow = useRef(follow);
+  const loadLatest = useRef(load);
+  loadLatest.current = load;
+  const pathNow = useRef(path);
+  pathNow.current = path;
   useEffect(() => {
-    if (active && path === null && !loading && error === null) load(null);
-  }, [active, path, loading, error, load]);
+    if (follow === handledFollow.current) return;
+    handledFollow.current = follow;
+    followPending.current = true;
+    setFollowing(true);
+    terminalDir(sessionId)
+      .catch(() => null)
+      .then((dir) => {
+        if (follow !== handledFollow.current) return;
+        if (dir && dir !== pathNow.current) loadLatest.current(dir);
+      })
+      .finally(() => {
+        if (follow !== handledFollow.current) return;
+        followPending.current = false;
+        setFollowing(false);
+      });
+  }, [follow, sessionId]);
+
+  // Opens the home directory once, the first time the file view is shown, unless it is about to
+  // open the terminal's directory instead.
+  useEffect(() => {
+    if (active && path === null && !loading && !following && !followPending.current && error === null) load(null);
+  }, [active, path, loading, following, error, load]);
 
   const refresh = () => load(path);
 
@@ -384,7 +415,7 @@ export function FileBrowser({ sessionId, active, onNotice, onOpenFile, finishedU
           <ArrowUp size={15} />
         </button>
         <button type="button" aria-label="刷新" data-tooltip="刷新" className={iconButton} onClick={refresh}>
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={15} className={loading || following ? "animate-spin" : ""} />
         </button>
         <form
           className="min-w-0 flex-1"

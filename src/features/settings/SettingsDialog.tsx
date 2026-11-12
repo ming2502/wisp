@@ -187,6 +187,18 @@ export function SettingsDialog({ onClose, updater, onOpenUpdate }: Props) {
           </Row>
         </Section>
 
+        <Section title="文件">
+          <Row label="切换到文件时打开终端所在目录">
+            {(id) => (
+              <Switch
+                id={id}
+                checked={settings.followTerminal}
+                onChange={(followTerminal) => update((current) => ({ ...current, followTerminal }))}
+              />
+            )}
+          </Row>
+        </Section>
+
         <Section title="关于">
           <div className="flex min-h-11 items-center justify-between gap-4 px-3 py-1.5 text-sm">
             <span className="shrink-0 whitespace-nowrap">

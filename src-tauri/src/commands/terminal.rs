@@ -73,6 +73,20 @@ pub fn terminal_ack(state: State<'_, AppState>, terminal_id: Id, bytes: usize) {
     }
 }
 
+/// The directory the session's shell is in, for the file view to follow; `None` when the server
+/// cannot tell.
+#[tauri::command]
+pub async fn terminal_dir(
+    state: State<'_, AppState>,
+    session_id: Id,
+) -> Result<Option<String>, String> {
+    let session = state.sessions.lock().unwrap().get(&session_id).cloned();
+    Ok(match session {
+        Some(session) => session.terminal_dir().await,
+        None => None,
+    })
+}
+
 #[tauri::command]
 pub fn terminal_close(state: State<'_, AppState>, terminal_id: Id) {
     state.terminals.lock().unwrap().remove(&terminal_id);

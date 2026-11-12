@@ -222,7 +222,11 @@ export default function App() {
   }
 
   function setView(key: string, view: View) {
-    updateTab(key, (tab) => (tab.kind === "session" ? { ...tab, view } : tab));
+    updateTab(key, (tab) => {
+      if (tab.kind !== "session" || tab.view === view) return tab;
+      const follow = view === "files" && settings.followTerminal && !tab.end;
+      return { ...tab, view, follow: follow ? (tab.follow ?? 0) + 1 : tab.follow };
+    });
   }
 
   function openFile(sessionId: number, path: string) {
@@ -486,6 +490,7 @@ export default function App() {
                         onNotice={setNotice}
                         onOpenFile={(path) => openFile(tab.sessionId, path)}
                         finishedUploads={finishedUploads.get(tab.sessionId) ?? noUploads}
+                        follow={tab.follow ?? 0}
                       />
                     </div>
                   )}
